@@ -1,0 +1,519 @@
+:update-date: 2021-08-16
+:doctype: book
+:docinfo:
+:toc: left
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:sectnums:
+:idprefix:
+:idseparator: -
+:linkattrs:
+:source-highlighter: coderay
+:icons: font
+:iso639-1: http://www.loc.gov/standards/iso639-2/php/code_list.php
+:imagesdir: images
+:stylesheet: my-theme.css
+:checkedbox: pass:normal[&#10004;]
+:API: http://rest-reference.test.paas.socialsecurity.be/REST/demo/v1
+
+= REST Security Guidelines
+
+{update-date}
+
+:toc!:
+:caption!:
+
+
+== Introduction
+
+This document aims to complement the GCloud REST Guideline by introducing how to secure RESTful services for integrity, non-repudiation, and confidentiality.
+
+We recommend using JSON Object Signing and Encryption (JOSE) Framework which consists of several standards well accepted in recent years.
+
+==  Changelog
+
+* 2021-07-08
+** First draft version
+
+
+==  Concepts
+=== Security Terminologies
+
+When looking at any security aspect, often a lot of terms get thrown around, which can be distracting and sometimes overwhelming. Therefore, before diving into securing RESTful APIs it is worth getting some security jargons out of the way.
+
+We are going to use a banking application as an analogy to make it more understandable.
+
+* *Authentication* - Validation of the sender’s identity so that receiver knows who they are talking to.
+** To be able to log in to a banking application, you have to provide some credentials like customer ID and passcode, your fingerprint, FaceID, etc.
+* *Authorization* - Verification that the sender has access to a certain resource.
+** After authentication, the application knows who you are and lets you to to view your accounts, even though it has thousands of accounts owned by other customers. You can not even view your partner's accounts.
+* *Integrity* - Ensuring message contents of a request haven’t changed in transit.
+** While sending money to your partner, you want to make sure that the account number or the amount cannot be changed during the execution of your request.
+* *Non-repudiation* - Ensuring that the sender cannot deny having sent the message.
+** Your bank cannot deny having sent you a bank statement if it has a valid stamp of the bank on it and this could be proved to a third party.
+* *Confidentiality* - No one can see the message contents in transit from the sender to the receiver.
+** All your transactions are private and have sensitive information. You don’t want them to be disclosed.
+
+
+=== Message Signing using Digital Signatures (Public/Private Keys)
+
+Digital signatures use asymmetric public-key cryptography to establish *authenticity* (message sent by a known sender), *integrity* (the message wasn’t tampered with), and *non-repudiation* (message sent by the sender cannot be denied).
+
+When signing, the sender uses *his/her private key* to write the message’s signature, and the receiver uses the *sender’s public key* to check if it’s really from the sender. A *timestamp* and *nonce* are used to generate the signature, to prevent reuse against replay attacks.
+
+image::image1.jpeg[image,width=468,height=419]
+
+A service (when acting as a *receiver*) has a list of *public keys* for all other services that want to talk to it and provides its *public key* (when acting as a *sender*) to other services that it wants to talk to.
+
+=== JSON Object Signing and Encryption (JOSE) Framework
+
+The JSON Object Signing and Encryption (JOSE) framework consists of several technologies to secure communication of RESTful services:
+
+* JSON Web Token (https://tools.ietf.org/html/rfc7519[JW19T])
+* JSON Web Signature (https://tools.ietf.org/html/rfc7515[JWS])
+* JSON Web Encryption (https://tools.ietf.org/html/rfc7516[JWE])
+* JSON Web Key (https://tools.ietf.org/html/rfc7517[JWK])
+
+*JSON Web Token (JWT)* is a compact, URL-safe means of representing claims to be transferred between two parties. The claims in a JWT are encoded as a JSON object that is used as the payload of a JSON Web Signature (JWS) structure or as the plaintext of a JSON Web Encryption (JWE) structure, enabling the claims to be digitally signed or encrypted. In general, JWT is represented in a JWS form and called a signed token. Signed tokens can be verified and trusted with a digital signature. It consists of three distinct parts that are URL encoded for transport:
+
+* Header: The header contains the metadata for the token and at a minimum contains the type of the signature algorithm
+* Claims: The claims contain any information in JSON format
+* Signature: The headers and claims digitally signed using the algorithm specified in the header
+
+image::image2.png[image,width=346,height=57]
+
+The Signature part ensures that the claims have not been tampered with when passed between client and server. The contents of the JWT token are Base64 encoded and not encrypted (_remember encoding is different from encryption!_). Base64 encoded data looks encrypted in that it looks like impenetrable text but it’s trivially simple to turn back into readable data. Therefore, it is always advised to not contain any sensitive information in JWT. It is advisable to use JWT only when you want to exchange information between two parties and no sensitive data is passed as part of claims in token.
+
+image::image3.png[image,width=583,height=306]
+
+*JSON Web Signature (JWS)* represents content secured with digital signatures using JSON-based data structures. The main difference between JWT and JWS is that the payload can be any content and need not be a representation of a JSON object.
+
+What if you want to include any private information in a token? You don’t want your sensitive information to be present in a token that is only Base64 encoded that can be easily decoded by any attacker. Fortunately, there is a way to encrypt and guard the claims data with another, a more secure level of protection known as *JSON Web Encryption (JWE)*. It defines a way to encrypt your data so that only the intended receiver can read the information present in the JWE object.
+
+image::image4.png[image,width=601,height=71]
+
+To sum up, the aims of JWS and JWE are different. A JWS is used to sign claims, a JWE is used to transmit sensitive data.
+
+A JWS is used to sign the data, making it integrity-protected, this means that:
+
+* Man-in-the-middle attacks can see the data for what it is
+* Man-in-the-middle attacks cannot modify it, since the signature verification would fail
+
+A JWE is used to encrypt the data as well as make it integrity-protected:
+
+* Man-in-the-middle attacks cannot see the data for what it is
+* Man-in-the-middle attacks cannot modify it, since the verification would fail
+
+And lastly, to be able to use JWS and JWE, we need cryptographic keys. *JSON Web Key (JWK)* defines a consistent way to represent a cryptographic key in a JSON structure which is used to sign (JWS) and/or encrypt (JWE) a specific content. The JWK Set is a set of keys containing the public keys used to verify or decrypt the content provided by the other parties.
+
+Here is the JWK Set of the Axway Compliant API Server of BOSA.
+
+https://fsb.services.pr.belgium.be/api/jwks/1.0
+
+=== OAuth 2.0 Flows
+
+The OAuth 2.0 authorization framework enables a third-party application to obtain limited access to an HTTP service, either on behalf of a resource owner by orchestrating an approval interaction between the resource owner and the HTTP service, or by allowing the third-party application to obtain access on its own behalf.
+
+It has been defined in https://datatracker.ietf.org/doc/html/rfc6749[RFC6749-The OAuth 2.0 Authorization Framework].
+
+Frankly, we use the OAuth 2.0 protocol for authorization and OAuth 2.0 authorization servers support several OAuth flows:
+
+* Authorization code grant (or webserver) flow: The web server authentication flow is used by applications that are hosted on a secure server. A critical aspect of the webserver flow is that the server must be able to protect the issued client application's secret.
+* Implicit grant (or user agent) flow: The user agent authentication flow is used by client applications residing on the user's device. This can be implemented in a browser using a scripting language such as JavaScript or Flash. These client applications cannot keep the client application secret confidential.
+* Resource owner password credentials flow: This user name and password authentication flow can be used when the client application already has the resource owner's credentials.
+* Client credentials grant flow: This user name and password flow is used when the client application needs to directly access its own resources on the resource server. Only the client application's credentials are used in this flow. The resource owner's credentials are not required.
+* JWT flow: This flow is similar to OAuth 2.0 client credentials. A JSON Web Token (JWT) is a JSON-based security token encoding that enables identity and security information to be shared across security domains.
+* Refresh token: After the client application has been authorized for access, it can use a refresh token to get a new access token. This is only done after the consumer already has received an access token using the authorization code grant or resource owner password credentials flow.
+* Revoke token flow: A revoke token request causes the removal of the client application permissions associated with the particular token to access the end-user's protected resources.
+* Token information service flow: The OAuth token information service responds to requests for information on a specified OAuth 2.0 access token.
+
+
+=== OpenID Connect
+
+OpenID Connect 1.0 is a simple identity layer on top of the OAuth 2.0 protocol. It allows Clients to verify the identity of the End-User based on the authentication performed by an Authorization Server, as well as to obtain basic profile information about the End-User in an interoperable and REST-like manner.
+
+OpenID Connect is an open standard that organizations use to authenticate users. Identity Providers use this so that users can sign in to their servers, and then access other websites and applications without having to log in or share their sign-in information. 
+
+https://idp.iamfas.belgium.be/fasui/login
+
+image::image5.png[image,width=624,height=423]
+
+
+
+==  Securing REST APIs
+
+
+=== Multiple Security Levels
+
+We could need various security requirements for different APIs. For instance, providing OAuth2 clientID and secret might be sufficient to search addresses of the notaries, but for Judicial services to query criminal records of a person, we need more security by involving digital certificates to encrypt the requests and responses.
+
+Therefore, we have defined multiple security levels for APIs;
+
+* *L0 (No policy)* – Public APIs which doesn’t require any security requirements. Consumer and provider don’t make any security checks.
+* *L1* - +++OAuth2 via Secret+++: The consumer needs an access token to consume the API of the provider. OAuth2 Server provides an access token via Authorization code grant or Client credentials grant flows. The consumer uses the access token to make requests to the API provider.
+* *L2*- +++OAuth2 via JWT:+++ The consumer needs an access token to consume the API of the provider. OAuth2 Server provides an access token via JWT Bearer flow. The consumer prepares a JWT using its Private Key and sends it to the OAuth Server to get an access token. The server validates the access token request by using the Public Key of the consumer. If it is verified, an access token is given to the consumer. The consumer uses the access token to make requests to the API provider.
+* *L3* - +++OAuth2 via JWT + JWS:+++ An access token is retrieved using the *L2* flow. Instead of sending the request directly, the consumer prepares a JWS object from the request body using its Private Key. The Provider verifies the request (JWS) using the Public Key of the Consumer. Before sending the response back to the consumer, the Provider prepares a JWS object from the response using its Private Key. Finally, the Consumer verifies the response using the public key of the Provider.
+* *L4* - +++OAuth2 via JWT + JWE+++: An access token is retrieved using the *L2* flow. Before sending the request, the consumer encrypts it and prepares a JWE object using the Public Key of the Provider. When the provider receives the request (JWE), it decrypts the JWE object using its Private Key. Similarly, the Provider uses the public key of the consumer to encrypt the response. Finally, the consumer decrypts the response using its own Private Key.
+
+[width="100%",cols="21%,25%,12%,22%,20%",options="header",]
+|===
+|*Security Level* |*AuthN&Z* |*Integrity* |*Non-repudiation* |*Confidentiality*
+|L0 |No |No |No |No
+|L1 |Yes (via Secret) |No |No |No
+|L2 |Yes (via Certificate) |No |No |No
+|L3 |Yes |Yes |Yes |No
+|L4 |Yes |Yes |Yes |Yes
+|===
+
+=== Sharing the Public Keys with Consumers via JWK
+
+The JWK is nothing more than another representation of the (public) key of a certificate keypair and the JWK Set is simply a list of one or more JWKs.
+
+We need to convert the Public keys to JWK objects and group them in a JWK Set. Various tools can be used and nearly all software development languages have support or extensions to be able to do that. Here are two samples for Python:
+
+* https://jwcrypto.readthedocs.io/en/latest/jwk.html
+* https://docs.authlib.org/en/latest/jose/jwk.html#jwk-guide
+
+The resulting JWK Set must contain (at least) two JWKs: one whereby the “use” parameter is ”enc” (for encryption) and another with “sig” (for signature).
+
+This JWK Set is a JSON formatted file and you should place that on a publicly available URL and share that link with the other parties to be integrated.
+
+To be elaborated for specifying mandatory fields for JWKS
+
+=== OAuth2 Access Tokens
+
+To access APIs secured by an Authorization Server, the consumer must provide an access token in the HTTP Authorization header.
+
+==== Token scope (scope)
+
+Scope is a mechanism in OAuth 2.0 to limit the usage of access tokens.
+
+To be defined the naming conventions for scopes.
+
+==== Token Expiration Time (expires_in)
+
+Expiration time on or after which the access token MUST NOT be accepted for processing.
+
+The expiration time for issued access tokens should be a maximum of 1 hour.
+
+=== Using JWT for Access Token Requests
+
+JWT Bearer grant type is already provided by most API Managers. For instance, Axway API Manager documentation describes it here.
+
+https://docs.axway.com/bundle/axway-open-docs/page/docs/apim_policydev/apigw_oauth/oauth_flows/oauth_flows_jwt/index.html[https://docs.API Manager.com/bundle/API Manager-open-docs/page/docs/apim_policydev/apigw_oauth/oauth_flows/oauth_flows_jwt/index.html]
+
+This grant type is an extension to the https://tools.ietf.org/html/rfc6749[RFC6749-The OAuth 2.0 Authorization Framework standard] and defined in the https://tools.ietf.org/html/rfc7523[RFC7523-JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants]. Consumers provide a JSON Web Token (JWT) to request an access token from the Authorization Server.
+
+JWT contains information (a set of claims) that can be verified and trusted with a digital signature. In its most simple form, JWT has three distinct parts that are URL encoded for transport:
+
+* Header: The header contains the metadata for the token and at a minimum contains the type of the signature and/or encryption algorithm
+* Claims: The claims contain any information in JSON format
+* Signature: The headers and claims digitally signed using the algorithm specified in the header
+
+There are some best practices to use JWT more securely. Here are some of them;
+
+* Always verify the signature before you trust any information in the JWT.
+* Unsecured JWT objects should not be permitted. Put another way, while you are verifying the signature, if the signature algorithm is set to ‘none’, it should fail verification.
+* Do not contain any sensitive data in a JWT. These tokens are usually signed to protect against manipulation (not encrypted) so the data in the claims can be easily decoded and read. For example, you wouldn’t want to include a user’s address in a JWT; you would want to store a link to the user’s record or another identifier that is opaque and have your application look up the information.
+* If you do need to store sensitive information in a JWT, check out JSON Web Encryption (JWE).
+* To be able to resistant against the replay attacks, include a nonce (jti claim), expiration time (exp claim), and creation time (iat claim) in the claims.
+
+
+==== What you need
+
+* Private Key of your certificate
+* Public Key of your certificate _(to be shared with the Provider)_
+* OAuth2 ID _(provided by the Authorization Server)_
+
+==== How to create a JWT
+
+.A sample JWT (Source: http://www.jwt.io[www.jwt.io])
+image::image6.png[image,width=468,height=248]
+
+To create a valid JWT object to be able to request an access token, follow these steps:
+
+image::image7.png[image,width=468,height=145]
+* Construct a header to define the algorithm that is used to secure the JWT.
+
+[width="100%",cols="16%,34%,18%,32%",options="header",]
+|===
+|*Parameter* |*Description* |*Required* |*Value/ [Description]*
+|alg |Identifies the cryptographic algorithm used to secure the JWT. |Must |RS256
+|typ |Declare the media type. |Optional |JWT
+|jku |JWK Set URL refers to a resource for a set of JSON-encoded public keys, one of which corresponds to the key used to digitally sign the JWT. |Optional |\{URL}
+|jkw |JSON Web Key, the public key that corresponds to the key used to digitally sign the JWT. |Optional |\{JWK Set}
+|kid |Key ID indicates which key was used to secure the JWT. |Optional |\{Thumbprint (x5t#S256) of the signing certificate}
+|===
+.Sample JWT Header
+```
+{
+    "alg": "RS256",
+    "typ": "JWT"
+}
+```
+
+* Encode the header using Base64URL as defined in http://tools.ietf.org/html/rfc4648#page-7.
+
+```
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9
+```
+
+* Construct a JSON Claims Set for the JWT payload.
+
+[width="100%",cols="15%,44%,25%,16%",options="header",]
+|===
+|*Parameter* |*Description* |*Required* |*Value/ [Description]*
+|iss |Issuer identifies the principal that issued the JWT. For instance, the OAuth Client ID of the consumer |Must |
+|sub |Subject identifies the principal that is the subject of the JWT. The claims in a JWT are normally statements about the subject. |Must |
+|aud |Audience identifies the authorization server as an intended audience. The authorization server must verify that it is an intended audience for the token. |Must |
+|exp |Expiration Time identifies the expiration time on or after which the JWT must not be accepted for processing. Should be later than the iat claim |Must a|
+\{Seconds since the Epoch}
+
+_e.g. 1615198526 = March 8, 2021 10:15:26 AM_
+
+|iat |Issued At identifies the time at which the JWT was issued. |Must a|
+\{Seconds since the Epoch}
+
+_e.g. 1615198426 = March 8, 2021 10:13:46 AM_
+
+|jti |JWT ID provides a unique identifier for the JWT and can be used to prevent the JWT from being replayed. |Optional |
+|===
+.Sample JWT Claims
+```
+{
+    "aud": "https://fsp.server/api/oauth2/token",
+    "iss": "test.be---20078d65-1111-2222-3333-4af84a203369",
+    "exp": 1615199102,
+    "scope": "BOSA",
+    "iat": 1615198802,
+    "sub": "test.account@fgov.be"
+}
+```
+* Encode the JWT Claims using Base64URL.
+
+```
+eyJzdWIiOiJ0ZXN0LmFjY291bnRAZmdvdi5iZSIsImlzcyI6InRlc3QuYmUtLS0yMDA3OGQ2NS0xMTExLTIyMjItMzMzMy00YWY4NGEyMDMzNjkiLCJleHAiOjE2MTUxOTkxMDIsImlhdCI6MTYxNTE5ODgwMiwic2NvcGUiOiJCT1NBIiwiYXVkIjoiaHR0cHM6Ly9mc3Auc2VydmVyL2FwaS9vYXV0aDIvdG9rZW4ifQ
+```
+
+* Concatenate encoded claims and header with a “.” (dot) to prepare the input string which is signed using SHA256 with RSA. You need to provide your private key to the signing algorithm. Several examples for signing are given in https://tools.ietf.org/html/rfc7520[RFC-7520: Examples of Protecting Content Using JSON Object Signing and Encryption (JOSE)].
+
+*Input String (data to be signed):*
+```
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LmFjY291bnRAZmdvdi5iZSIsImlzcyI6InRlc3QuYmUtLS0yMDA3OGQ2NS0xMTExLTIyMjItMzMzMy00YWY4NGEyMDMzNjkiLCJleHAiOjE2MTUxOTkxMDIsImlhdCI6MTYxNTE5ODgwMiwic2NvcGUiOiJCT1NBIiwiYXVkIjoiaHR0cHM6Ly9mc3Auc2VydmVyL2FwaS9vYXV0aDIvdG9rZW4ifQ
+```
+*Signature:*
+```
+pjtgHejTUbhJcdMs34mlC1NzQrrhhPV8WWM-HTCe08V9ZxyMNlpH19F_ApZ-3Xk2dEag0YGuBz_ksov9U_uIMn-ArvGZwXoHHRmZ9hraM-U-AKz73b2UMfsg83jAznQ5g0kJh6CR69o8Wae1-tb-wW0pn9Lc7MaIM943aOgSalJsQF2Ixw1JazZjs3wCgYbpZQ9DRoqr02xiHD-tFWK5JRARzqtXRJQldNr_nnufJrXWPxEUYxhKGYtHyanKmRu8GBuB7nb9h9n7jZBiHnTNpUNUwTI4EZz_byxnKXLyVQgp56yZL60w6IBNEsmwcJKTgGz33guohQOQZXIEm5ds4A
+```
+
+* Concatenate the signature with a .(dot) to the end of the input string. The result is the following JWT:
+
+```
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LmFjY291bnRAZmdvdi5iZSIsImlzcyI6InRlc3QuYmUtLS0yMDA3OGQ2NS0xMTExLTIyMjItMzMzMy00YWY4NGEyMDMzNjkiLCJleHAiOjE2MTUxOTkxMDIsImlhdCI6MTYxNTE5ODgwMiwic2NvcGUiOiJCT1NBIiwiYXVkIjoiaHR0cHM6Ly9mc3Auc2VydmVyL2FwaS9vYXV0aDIvdG9rZW4ifQ.pjtgHejTUbhJcdMs34mlC1NzQrrhhPV8WWM-HTCe08V9ZxyMNlpH19F_ApZ-3Xk2dEag0YGuBz_ksov9U_uIMn-ArvGZwXoHHRmZ9hraM-U-AKz73b2UMfsg83jAznQ5g0kJh6CR69o8Wae1-tb-wW0pn9Lc7MaIM943aOgSalJsQF2Ixw1JazZjs3wCgYbpZQ9DRoqr02xiHD-tFWK5JRARzqtXRJQldNr_nnufJrXWPxEUYxhKGYtHyanKmRu8GBuB7nb9h9n7jZBiHnTNpUNUwTI4EZz_byxnKXLyVQgp56yZL60w6IBNEsmwcJKTgGz33guohQOQZXIEm5ds4A
+```
+
+==== How to get an access token
+
+You should send a POST request to the Access Token URI of the Authorization Server. In your request you should set the grant type as urn:ietf:params:oauth:grant-type:jwt-bearer and provide the assertion which should be a JWT object.
+
+[width="100%",cols="14%,38%,48%",options="header",]
+|===
+|*Parameter* |*Description* |*Value*
+|grant_type |Grant type to be used to request an access token. |urn:ietf:params:oauth:grant-type:jwt-bearer
+|assertion |Must be set to the JWT bearer token. |\{JWT}
+|===
+
+*Sample Request (Body):*
+
+```
+grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJodHRwczovL2ZzcC5zZXJ2ZXIvYXBpL29hdXRoMi90b2tlbiIsImlzcyI6IkJPU0FBdXRvbWF0ZWR0ZXN0aW5nLXRlc3QuYm9zYS5iZS0tLTIwMDc4ZDY1LTdiMGYtNDg1Mi1hODE5LTRhZjg0YTIwMzM2OSIsImV4cCI6MTYxNTIwMTgxMiwic2NvcGUiOiJCT1NBIiwiaWF0IjoxNjE1MjAxNTEyLCJzdWIiOiJib3NhLmF1dG9tYXRlZC50ZXN0QGJvc2EuZmdvdi5iZSJ9.4oyNEaf2fe7q7qtvMrZdgZD5n773vt5SH1Hlv1AYvmLJC8X1OefLOCjZ8acP2kWgJ4NnNYH_5pmMaXovjBEMdBNM78TNS2KsR67tB183dBjz1IS-mXOfpMLoegiyoPZx2djB9EH5k8-AlcKvzDc2ZRBTJXqwdVNGvWof7mG-th7jpOSokT3A7RNEpOk_SFXs0F6bYvdB9vkMTN4fK86Yg0-vY0jvY5_JdM1KIy7tIq_m9A43xOsyxXPZdKdlDOAzsQmGFw3v_GfvojGpy01FSuqvhyZt3Z0QbpzcjyQG1FzEHDaqDtXKXgdaMxm4M4ijJRoAuWK1fDYpudrPelvjdQ
+```
+*Sample Response (Body):*
+
+```
+{
+    "access_token":"uVCywFBb3Css9oMM3MY2ANLiFk5Ti4itJPlrS8K98nPrP8JHpB7sAE",
+    "token_type":"Bearer",
+    "expires_in":3600,
+    "scope":"BOSA"
+}
+```
+
+=== Using JWS for Signing Request and Response
+
+A valid digital signature proves that the message was created by a known sender, that the sender cannot deny having sent the message (*non-repudiation*), and that the message has not tampered with during the transition (*integrity*).
+
+The JSON Web Signature defined in the https://tools.ietf.org/html/rfc7515[RFC7515-JSON Web Signature (JWS)] standard describes the process of creation and validation of a signed payload. Its structure is the same as the JWT which has been detailed in the previous section.
+
+We are using the JWS Compact Serialization, defined in https://tools.ietf.org/html/rfc7515#page-7[Section 3.1] in the standard.
+
+For cryptographic operations we are using the followings:
+
+* Algorithm: SHA256 (RSA)
+* Padding: PKCS1v15
+
+There are two ways of using JWS. We will explain how to use both options in detail.
+
+* JWS defined in https://tools.ietf.org/html/rfc7515[RFC7515]: This is the most common use of JWS.
+* Detached JWS which is a JWS with Unencoded Payload Option as defined in https://tools.ietf.org/html/rfc7797[RFC7797]: This skips encoding the payload which makes performance improvement for large payloads.
+
+*_+++If you are transmitting large payloads or uploading large files, consider using the “Detached JWS” for the unencoded payload option.+++_*
+
+==== What you need
+
+* Private Key of your certificate
+* Public Key of your certificate _(to be shared with the Provider)_
+* OAuth2 ID _(provided by the Authorization Server)_
+* Public Key of the Provider _(provided as a JWKS by the Provider)_
+
+
+==== How to create a JWS
+
+image:image8.png[image,width=468,height=148]
+
+To create a valid JWS object to be able to request an access token, follow these steps:
+
+* Construct a header to define the algorithm that is used to sign the JWS.
+
+[width="100%",cols="16%,32%,15%,37%",options="header",]
+|===
+|*Parameter* |*Description* |*Required* |*Value/ [Description]*
+|alg |Identifies the cryptographic algorithm used to secure the JWS. |Must |RS256
+|typ |Declare the media type. |Optional |JOSE
+|jku |JWK Set URL refers to a resource for a set of JSON-encoded public keys, one of which corresponds to the key used to digitally sign the JWS. |Optional |\{URL}
+|jkw |JSON Web Key is the public key that corresponds to the key used to digitally sign the JWS. |Optional |\{JWK Set}
+|kid |Key ID indicates which key was used to secure the JWS. |Optional |\{Thumbprint (x5t#S256) of the signing certificate}
+|===
+.Sample JWS Header
+```
+{
+    "alg": "RS256"
+}
+```
+
+* Encode the header using Base64URL as defined in http://tools.ietf.org/html/rfc4648#page-7.
+
+```
+eyJhbGciOiJSUzI1NiJ9
+```
+
+* Construct the content which will be signed as the JWS payload. It is *NOT* obliged to be a JSON.
+```
+Sample content
+```
+
+* Encode the UTF-8 representation of the payload using Base64URL.
+
+```
+U2FtcGxlIGNvbnRlbnQ
+```
+
+* Concatenate encoded payload and header with a “.” (dot) to prepare the input string which is signed using SHA256 with RSA. You need to provide your private key to the signing algorithm. Several examples for signing are given in https://tools.ietf.org/html/rfc7520[RFC-7520: Examples of Protecting Content Using JSON Object Signing and Encryption (JOSE)].
+
+*Input String (data to be signed):*
+```
+eyJhbGciOiJSUzI1NiJ9.U2FtcGxlIGNvbnRlbnQ
+```
+*Signature:*
+```
+qbXsh9EWdtq-4LHEqFFTcBOCqJKsr8aU1VuVSb_XCbwuJCKL9AryK4ZOC-I5CfphxOLHlJvp4wxDBYLa9GWw-z7syy8eBGaqAPX2H00Lvgn--1F3FZ_Q3c-bBWXQmb5GYVpJYfzuMkgG23P6RGOrD3borV6lcS9R0mO28o3BQO_M2JuV27C4P_EykFUOIn2JFMoFrrNukh8LP4Ak8RpkhxN3QF_kT0CjWZO7uzGtYR4xPMIuniQPGHTzeDexufW237NrHEW_J5xefj4ETSE0xiAxn7ZSvZOGcPpfKWYQuREd7DpleBakPcdAybtKu7bdrHN9a-4O4Cu47q1ekS9D3g
+```
+
+* Concatenate the signature with a .(dot) to the end of the input string. The result is the following JWS:
+
+```
+eyJhbGciOiJSUzI1NiJ9.U2FtcGxlIGNvbnRlbnQ.qbXsh9EWdtq-4LHEqFFTcBOCqJKsr8aU1VuVSb_XCbwuJCKL9AryK4ZOC-I5CfphxOLHlJvp4wxDBYLa9GWw-z7syy8eBGaqAPX2H00Lvgn--1F3FZ_Q3c-bBWXQmb5GYVpJYfzuMkgG23P6RGOrD3borV6lcS9R0mO28o3BQO_M2JuV27C4P_EykFUOIn2JFMoFrrNukh8LP4Ak8RpkhxN3QF_kT0CjWZO7uzGtYR4xPMIuniQPGHTzeDexufW237NrHEW_J5xefj4ETSE0xiAxn7ZSvZOGcPpfKWYQuREd7DpleBakPcdAybtKu7bdrHN9a-4O4Cu47q1ekS9D3g
+```
+
+* Prepare your HTTP message using the JWS.
+** The access tokens in OAuth 2.0 are of type *bearer*, meaning the client needs to pass the token with each request.
+** The followings are the expected HTTP headers:
+
+[width="100%",cols="22%,19%,17%,42%",]
+|===
+|*HTTP Header* |*Description* |*Required* |*Value*
+|Authorization |Must be set to the access token. |Must |Bearer \{Access Token}
+|Content-Type |Content type of the payload. |Optional a|
+\{JSON body} -> application/jose+json
+
+\{Non JSON body} -> application/jose
+
+|===
+
+==== How to create a Detached JWS
+
+image::image9.png[image,width=468,height=160]
+
+To create a valid JWS object to be able to request an access token, follow these steps:
+
+* Construct a header to define the algorithm that is used to sign the JWS.
+
+[width="100%",cols="15%,32%,12%,41%",options="header",]
+|===
+|*Parameter* |*Description* |*Required* |*Value/ \{Description}*
+|alg |Identifies the cryptographic algorithm used to secure the JWS. |Must |RS256
+|typ |Declare the media type. |Optional |JOSE
+|jku |JWK Set URL refers to a resource for a set of JSON-encoded public keys, one of which corresponds to the key used to digitally sign the JWS. |Optional |\{URL}
+|jkw |JSON Web Key, the public key that corresponds to the key used to digitally sign the JWS. |Optional |\{JWK Set}
+|kid |Key ID indicates which key was used to secure the JWS. |Optional |\{Thumbprint (x5t#S256) of the signing certificate}
+|crit |Critical indicates that extensions to this specification are being used that MUST be understood and processed. Its value is an array listing the Header Parameter names present in the JOSE Header that use those extensions. |Mandatory |[“b64”]
+|b64 |Base64URL-Encode payload determines whether the payload is represented in the JWS as Base64URL encoded or as the payload value itself with no encoding performed. |Mandatory |false
+|===
+
+.JWS with Unencoded Payload Header
+```
+{
+    "alg":"RS256",
+    "b64":false,
+    "crit":["b64"]
+}
+```
+
+* Encode the header using Base64URL as defined in http://tools.ietf.org/html/rfc4648#page-7.
+
+```
+eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19
+```
+
+* Construct the UTF-8 representation of the payload which will be signed as the JWS payload. It is *NOT* obliged to be a JSON.
+
+```
+Sample content
+```
+
+* Concatenate encoded header and unencoded payload with a “.” (dot) to prepare the input string which is signed using SHA256 with RSA. You need to provide your private key to the signing algorithm. Several examples for signing are given in https://tools.ietf.org/html/rfc7520[RFC-7520: Examples of Protecting Content Using JSON Object Signing and Encryption (JOSE)].
+
+*Input String (data to be signed):*
+```
+eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19.Sample content
+```
+*Signature:*
+```
+CV_KdWKFu3PyIAN_qv9R89tC0OQBLow7ycF_TpG7pwvZi4jx_v44gLPvZz814DURTZOTUWHGM09BYVwaJYTPGZWOkjRO8ynJy37NGzQ6Amu3o1vnFraPbKySgqCqNiNEbBAa8wCrbgMCww6NTT5tB2IKjWOMwdwVbnnb4JB9Q5CUKGWevrKnGhl-fGf96AU2YQGeBPlHo_BlpC--UOsgRdMrgHyl3t4eiQRw68CfLGokRQUIRorzM_Aq5bf6-H88eexcJ6W9PT7RzRtXhEl9GNf-0NGKMJep3mEaRraXG-t8fxDKj2nrxmEZZV4Riog5tpaj9NmL8veAkjweA7RdTA
+```
+
+* Don’t include the payload and concatenate encoded header and the signature with a “.” (dot). The result is the following JWS _(please be aware of the empty payload part)_:
+```
+eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..CV_KdWKFu3PyIAN_qv9R89tC0OQBLow7ycF_TpG7pwvZi4jx_v44gLPvZz814DURTZOTUWHGM09BYVwaJYTPGZWOkjRO8ynJy37NGzQ6Amu3o1vnFraPbKySgqCqNiNEbBAa8wCrbgMCww6NTT5tB2IKjWOMwdwVbnnb4JB9Q5CUKGWevrKnGhl-fGf96AU2YQGeBPlHo_BlpC--UOsgRdMrgHyl3t4eiQRw68CfLGokRQUIRorzM_Aq5bf6-H88eexcJ6W9PT7RzRtXhEl9GNf-0NGKMJep3mEaRraXG-t8fxDKj2nrxmEZZV4Riog5tpaj9NmL8veAkjweA7RdTA
+```
+
+* Prepare your HTTP message using the JWS.
+** The access tokens in OAuth 2.0 are of type *bearer*, meaning the client needs to pass the token with each request.
+** The followings are the expected HTTP headers:
+
+[width="100%",cols="22%,19%,17%,42%",]
+|===
+|*HTTP Header* |*Description* |*Required* |*Value*
+|Authorization |Must be set to the access token. |Must |Bearer \{Access Token}
+|BelGov-_Org_-JWS |JWS object to be sent. |Must |\{Detached JWS}
+|Content-Type |Content type of the payload. |Optional a|
+\{JSON body} -> application/jose+json
+
+\{Non JSON body} -> application/jose
+
+|===
+
+=== Using JWE for Encryption of Request and Response
+
+T.B.D.
