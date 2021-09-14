@@ -1,6 +1,6 @@
 # REST Security guide
 
-The REST Security guide, built from these sources, is available on https://www.gcloud.belgium.be/rest-security/.
+The REST Security guide, built from these sources, will be available on https://www.gcloud.belgium.be/rest-security/.
 
 This guide is established by the REST Security working group, which includes various participating Belgian government institutions.
 See the [wiki](https://github.com/belgif/rest-security/wiki) for more information on the organization of the REST Security working group and its meeting reports .
