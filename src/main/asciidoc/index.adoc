@@ -1,4 +1,4 @@
-:update-date: 2021-08-16
+:update-date: 2021-11-11
 :doctype: book
 :docinfo:
 :toc: left
@@ -17,503 +17,801 @@
 :checkedbox: pass:normal[&#10004;]
 :API: http://rest-reference.test.paas.socialsecurity.be/REST/demo/v1
 
-= REST Security Guidelines
-
+[.text-justify]
+= G-Cloud REST Security Guide
+G-Cloud REST Security workgroup
 {update-date}
+:keywords: g-cloud, rest, api, security
 
 :toc!:
 :caption!:
 
+NOTE: The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", “SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY",
+and "OPTIONAL" in this document are to be interpreted as described in https://datatracker.ietf.org/doc/html/rfc2119[RFC
+2119].
 
 == Introduction
 
-This document aims to complement the GCloud REST Guideline by introducing how to secure RESTful services for integrity, non-repudiation, and confidentiality.
+The quote "data is the new oil" - said to have been coined way back in 2006 by the British mathematician and
+entrepreneur Clive Humby - is now more relevant than ever.
 
-We recommend using JSON Object Signing and Encryption (JOSE) Framework which consists of several standards well accepted in recent years.
+Indeed, it's safe to say that we live in a digital age in which data has become one of the most valuable resources in
+the world (data-driven age).
+
+As a result of the rapid digital transformation of global industries, known as the fourth industrial revolution (or
+Industry 4.0), and the significant increase of machine-to-machine (M2M) communications to support Internet of Things
+(IoT) applications, the volume of data has skyrocketed over the last decade and continues to grow at an exponential
+rate.
+
+Recently, this growth has been further accelerated by the COVID-19 pandemic and its disruptive effect on businesses and
+lives around the world, forcing a greater reliance on digital technologies.
+
+In this context, RESTful web services have emerged as the de-facto industry standard for data exchange between systems
+and service integration.
+
+Unsurprisingly and as a result, REST APIs have become a prime target for threat actors.
+
+Accordingly, any self-respecting organization would be well advised to invest in REST API security to ensure
+confidentiality, integrity, and availability (i.e., the three fundamental tenets or objectives of information security,
+colloquially known as the CIA-triad) of its data.
+
+What's more, if the data contains personally identifiable information (PII), the organization becomes legally compelled
+under the GDPR to ensure that it is processed in a way that ensures appropriate privacy and security.
+
+This guide is the result of a collaboration between several Belgian governmental institutions and intends to raise
+awareness of security best practices for those involved in the development and maintenance of RESTful services.
+It ought to be regarded as an addendum to the G-Cloud REST guidelines.
+
+This guide is inspired by the OWASP Foundation's https://cheatsheetseries.owasp.org/["OWASP Cheat Sheet Series"] project
+(licensed under the Creative Commons Attribution 3.0 Unported License) and aims to provide a concise collection of
+RESTful API security recommendations tailored for Belgian government institutions.
+
+NOTE: The Open Web Application Security Project, or OWASP, is an international non-profit organization dedicated to web
+application security.
+Since 2001, it provides free documentation, tools, methodologies, and standards dedicated to improving organizations'
+application security posture.
+
+If implemented, these recommendations should prevent the vulnerabilities described in the 2019 version (i.e., the latest
+version at the time of writing) of the OWASP Foundation's https://owasp.org/www-project-api-security/["OWASP API
+Security Top 10"] project (licensed under a Creative Commons Attribution ShareAlike 4.0 International License).
+
+WARNING: This guide is non-exhaustive and focuses solely on RESTful API security.
+For recommendations related to web application security, please refer to the https://owasp.org/Top10/["OWASP Top 10"]
+and https://owasp.org/www-project-application-security-verification-standard/["OWASP Application Security Verification
+Standard (ASVS)"] projects of the OWASP Foundation.
+
+To enable collaboration and transparency, the source code for this guide is open source and publicly hosted on
+https://github.com/belgif/rest-security[GitHub].
+It’s meant to be a living document, regularly updated to meet the most current requirements, and address the latest
+trends and recommendations.
+
+If you are looking to contribute, please open an issue or submit a pull request to the upstream repository.
+All changes will be reviewed by members of the G-Cloud REST Security workgroup.
 
 ==  Changelog
 
 * 2021-07-08
 ** First draft version
+* 2021-11-11
+** Second draft version
 
+==  Data protection
+=== Data classification
 
-==  Concepts
-=== Security Terminologies
+Strong security is costly and can extend the time to market.
 
-When looking at any security aspect, often a lot of terms get thrown around, which can be distracting and sometimes overwhelming. Therefore, before diving into securing RESTful APIs it is worth getting some security jargons out of the way.
+In addition, security features often come with trade-offs in terms of performance or usability.
 
-We are going to use a banking application as an analogy to make it more understandable.
+Because of this, security management is often regarded as a balancing act, in which organizations strive to achieve
+balanced protection of information assets without unduly hindering productivity.
 
-* *Authentication* - Validation of the sender’s identity so that receiver knows who they are talking to.
-** To be able to log in to a banking application, you have to provide some credentials like customer ID and passcode, your fingerprint, FaceID, etc.
-* *Authorization* - Verification that the sender has access to a certain resource.
-** After authentication, the application knows who you are and lets you to to view your accounts, even though it has thousands of accounts owned by other customers. You can not even view your partner's accounts.
-* *Integrity* - Ensuring message contents of a request haven’t changed in transit.
-** While sending money to your partner, you want to make sure that the account number or the amount cannot be changed during the execution of your request.
-* *Non-repudiation* - Ensuring that the sender cannot deny having sent the message.
-** Your bank cannot deny having sent you a bank statement if it has a valid stamp of the bank on it and this could be proved to a third party.
-* *Confidentiality* - No one can see the message contents in transit from the sender to the receiver.
-** All your transactions are private and have sensitive information. You don’t want them to be disclosed.
+With that in mind, not all data is treated equally, and data classification, that is to say, the classification of data
+by sensitivity provides a common starting point for data risk management.
 
+Organizations should therefore have a mature data classification process in place, and employees should have a good
+understanding of it.
 
-=== Message Signing using Digital Signatures (Public/Private Keys)
+Appropriate safeguards should be defined for each category of data based on the organization's data risk management
+policies.
 
-Digital signatures use asymmetric public-key cryptography to establish *authenticity* (message sent by a known sender), *integrity* (the message wasn’t tampered with), and *non-repudiation* (message sent by the sender cannot be denied).
+For Belgian governmental institutions, the
+https://dt.bosa.be/fr/politique_federale_sur_la_securite_de_linformation_fisp[Federal Information Security Policy
+(FISP)] provides a generic model for data classification in which information is classified into 5 categories according
+to its confidentiality.
 
-When signing, the sender uses *his/her private key* to write the message’s signature, and the receiver uses the *sender’s public key* to check if it’s really from the sender. A *timestamp* and *nonce* are used to generate the signature, to prevent reuse against replay attacks.
+NOTE: The Federal Information Security Policy (FISP) is a comprehensive information security guide that was developed
+through a collaborative effort involving numerous information security experts from various federal agencies.
 
-image::image1.jpeg[image,width=468,height=419]
+Each category is assigned a number and a unique color code to enhance visual identification, and linked to specific
+measures that can be easily applied by the federal authorities.
 
-A service (when acting as a *receiver*) has a list of *public keys* for all other services that want to talk to it and provides its *public key* (when acting as a *sender*) to other services that it wants to talk to.
+Information the dissemination of which will not adversely affect the interests of a federal agency or violate the
+privacy rights of individuals is to be classified as Category 0.
 
-=== JSON Object Signing and Encryption (JOSE) Framework
+Information the undue dissemination of which could adversely affect the interests of a federal agency or violate the
+privacy rights of individuals is to be classified as Category 1.
 
-The JSON Object Signing and Encryption (JOSE) framework consists of several technologies to secure communication of RESTful services:
+Information the undue dissemination of which will adversely affect the interests of a federal agency or violate the
+privacy rights of individuals is to be classified as Category 2.
+
+Information the undue dissemination of which could seriously harm the interests of a federal agency or violate the
+privacy rights of vulnerable individuals and/or children is to be classified as Category 3.
 
-* JSON Web Token (https://tools.ietf.org/html/rfc7519[JW19T])
-* JSON Web Signature (https://tools.ietf.org/html/rfc7515[JWS])
-* JSON Web Encryption (https://tools.ietf.org/html/rfc7516[JWE])
-* JSON Web Key (https://tools.ietf.org/html/rfc7517[JWK])
+Classified information as defined by the law of December 11, 1998, the undue dissemination of which could seriously
+compromise the proper functioning of the country, international institutions, or international agreements, is to be
+classified as Category 4.
 
-*JSON Web Token (JWT)* is a compact, URL-safe means of representing claims to be transferred between two parties. The claims in a JWT are encoded as a JSON object that is used as the payload of a JSON Web Signature (JWS) structure or as the plaintext of a JSON Web Encryption (JWE) structure, enabling the claims to be digitally signed or encrypted. In general, JWT is represented in a JWS form and called a signed token. Signed tokens can be verified and trusted with a digital signature. It consists of three distinct parts that are URL encoded for transport:
 
-* Header: The header contains the metadata for the token and at a minimum contains the type of the signature algorithm
-* Claims: The claims contain any information in JSON format
-* Signature: The headers and claims digitally signed using the algorithm specified in the header
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+// TODO: if we agree on this proposal, we should provide details and examples
+For it is strongly recommended that the category be clearly indicated on the media, a RESTful API SHOULD expose a
+"/dataClassification" endpoint that returns the category of data being processed in accordance with the data
+classification model provided by the FISP guide.
+====
 
-image::image2.png[image,width=346,height=57]
+=== Protection in transit
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+When data is to be transmitted over a network, encryption in transit MUST be considered.
+====
 
-The Signature part ensures that the claims have not been tampered with when passed between client and server. The contents of the JWT token are Base64 encoded and not encrypted (_remember encoding is different from encryption!_). Base64 encoded data looks encrypted in that it looks like impenetrable text but it’s trivially simple to turn back into readable data. Therefore, it is always advised to not contain any sensitive information in JWT. It is advisable to use JWT only when you want to exchange information between two parties and no sensitive data is passed as part of claims in token.
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In the case of RESTful services, it is strongly RECOMMENDED that all communications be protected using the Transport
+Layer Security (TLS) cryptographic protocol.
+====
 
-image::image3.png[image,width=583,height=306]
+TLS allows clients to authenticate the server and guarantees the confidentiality and integrity of data in transit.
 
-*JSON Web Signature (JWS)* represents content secured with digital signatures using JSON-based data structures. The main difference between JWT and JWS is that the payload can be any content and need not be a representation of a JSON object.
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Its predecessor, the now-deprecated Secure Sockets Layer (SSL) protocol, MUST NOT be used under any circumstances.
+====
 
-What if you want to include any private information in a token? You don’t want your sensitive information to be present in a token that is only Base64 encoded that can be easily decoded by any attacker. Fortunately, there is a way to encrypt and guard the claims data with another, a more secure level of protection known as *JSON Web Encryption (JWE)*. It defines a way to encrypt your data so that only the intended receiver can read the information present in the JWE object.
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's strongly RECOMMENDED not to enable TLS 1.0 in an attempt to provide support to legacy clients.
+====
 
-image::image4.png[image,width=601,height=71]
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services processing Category 3-4 data SHOULD rely on mutual TLS (mTLS) to also allow the server to authenticate
+the clients.
+====
 
-To sum up, the aims of JWS and JWE are different. A JWS is used to sign claims, a JWE is used to transmit sensitive data.
+TLS supports a large number of cryptographic ciphers (or cipher suites) that provide varying levels of security.
 
-A JWS is used to sign the data, making it integrity-protected, this means that:
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+If possible, only strong ciphers SHOULD be enabled.
+====
 
-* Man-in-the-middle attacks can see the data for what it is
-* Man-in-the-middle attacks cannot modify it, since the signature verification would fail
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In all cases, anonymous ciphers, export ciphers, and null ciphers MUST be explicitly disabled.
+====
 
-A JWE is used to encrypt the data as well as make it integrity-protected:
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+CRIME-vulnerable TLS compression MUST be disabled.
+====
 
-* Man-in-the-middle attacks cannot see the data for what it is
-* Man-in-the-middle attacks cannot modify it, since the verification would fail
+TIP: Mozilla provides the https://ssl-config.mozilla.org/[Mozilla SSL Configuration Generator], an easy-to-use secure
+SSL configuration generator for web, database, and mail software.
 
-And lastly, to be able to use JWS and JWE, we need cryptographic keys. *JSON Web Key (JWK)* defines a consistent way to represent a cryptographic key in a JSON structure which is used to sign (JWS) and/or encrypt (JWE) a specific content. The JWK Set is a set of keys containing the public keys used to verify or decrypt the content provided by the other parties.
+=== Protection at rest
 
-Here is the JWK Set of the Axway Compliant API Server of BOSA.
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+When data is to be persisted on disk, encryption at rest MUST be considered.
+====
 
-https://fsb.services.pr.belgium.be/api/jwks/1.0
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Keys SHOULD be rotated on a regular and scheduled basis.
+====
 
-=== OAuth 2.0 Flows
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's RECOMMENDED to rely on a hardware security module (HSM) for server-side cryptographic key protection.
+====
 
-The OAuth 2.0 authorization framework enables a third-party application to obtain limited access to an HTTP service, either on behalf of a resource owner by orchestrating an approval interaction between the resource owner and the HTTP service, or by allowing the third-party application to obtain access on its own behalf.
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Application-level secrets MUST NOT be stored in code and SHOULD NOT be stored in configuration files or passed through
+environment variables.
+====
 
-It has been defined in https://datatracker.ietf.org/doc/html/rfc6749[RFC6749-The OAuth 2.0 Authorization Framework].
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It is RECOMMENDED to rely on trusted central secret management and distribution systems that allow secure access to
+application-level secrets at runtime.
+====
 
-Frankly, we use the OAuth 2.0 protocol for authorization and OAuth 2.0 authorization servers support several OAuth flows:
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Tokens MUST only be stored either in memory or on cryptographic hardware through a secure storage API.
+====
+
+== Access control
+Unfortunately, access control vulnerabilities have nowadays become by far the most common and most exploited REST API
+security flaw.
+
+This is not at all surprising, given how hard it is to get things right and how incredibly easy it is to mess them up.
+
+Admittedly, access control is a fundamentally complex subject.
+
+It requires strong knowledge and a thorough understanding of multiple security concepts that developers, especially the
+more junior ones, often don't have.
+
+The fact that many specifications have chosen to define their own lexicon instead of relying on existing well-known and
+understood terms has but added to the overall confusion.
+
+Simply put, in the case of RESTful services, access control is a composite concept that encompasses topics such as
+authentication, authorization, privileges, and server configuration (for instance, CORS and HTTP headers), with the
+overarching goal of restricting access to information.
+
+== OAuth 2.0
+
+Authorization, sometimes shortened to "AuthZ", is the act of granting an authenticated party access to a specific
+resource.
+
+Modern RESTful services typically rely on OAuth 2.0 for authorization.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Given its wide adoption and support, OAuth 2.0 is currently the RECOMMENDED way for managing authorization when
+designing RESTful services.
+====
+
+WARNING: As its name suggests, OAuth 2.0 is the second version of OAuth (OAuth is short for Open Authorization, and not for Open
+Authentication, contrary to what some sources might claim).
+The two specifications are however completely different from each other and there is no backwards compatibility between
+the two.
+
+OAuth 2.0, as defined per https://datatracker.ietf.org/doc/html/rfc6749[RFC 6749], is an authorization delegation
+framework that allows a client application to obtain permission for limited access to a protected resource on a resource
+server (sometimes called the service provider) on behalf of a resource owner (an end-user or itself) without exposing
+user login credentials, by relying on token-based credentials (called “access tokens”) obtained by successfully
+authenticating with an authorization server (sometimes called the identity provider).
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Although originally designed for third-party apps, OAuth 2.0 SHOULD nowadays be used even for first-party apps, as
+sharing credentials with anything other than the centralized - and usually highly-secure and well-audited -
+authorization server is considered an anti-pattern (and is therefore NOT RECOMMENDED).
+====
+
+Propelled by its adoption by Facebook and Twitter, OAuth 2.0 quickly became widely popular.
+
+This popularity seemingly blinded many people to the many challenges of OAuth 2.0.
+
+For starters, the specification is - regrettably - not standardized, plagued by an abundance of options and a
+frustrating lack of constraints leading to numerous insecure and non-interoperable implementations.
+
+What's worse, many important topics (e.g., client registration, authentication, authorization server capabilities) are
+simply not part of the core specification and were only addressed - partially - through the subsequent few hundred pages
+of "companion" specifications (e.g., https://datatracker.ietf.org/doc/html/rfc6750[RFC 6750],
+https://datatracker.ietf.org/doc/html/rfc6819[RFC 6819]).
+
+Thus, authentication, which is an important prerequisite for authorization, is, to date, simply considered the
+responsibility of the authorization server.
+
+Nevertheless, it's not all bad and, if implemented correctly, OAuth 2.0 is a vast improvement on what was being done in
+the past.
+
+OAuth 2.0 defines four roles:
+
+* the resource owner: an entity (end-user or server) capable of granting access to a protected resource;
+* the resource server: a server (e.g., REST API) hosting the protected resource;
+* the client: an application requesting access to a protected resource on behalf of the resource owner;
+* the authorization server: a server issuing tokens to the client after successfully authenticating the resource owner
+and obtaining authorization.
+
+The authorization process of OAuth 2.0 utilizes two authorization server endpoints:
+
+* the authorization endpoint: an endpoint used by the client to obtain authorization from the resource owner;
+* the token endpoint: an endpoint used by the client to exchange an authorization grant for an access token.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+To access a protected resource, the client MUST pass the access token in the Authorization header of the request using
+the Bearer HTTP authentication scheme (defined in RFC 6750 as part of the HTTP authentication framework).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The authorization server MUST be configured so that it returns access tokens that are self-contained in lieu of opaque
+tokens.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Indeed, opaque tokens MUST be validated at the authorization server's token introspection endpoint for each request,
+which is grossly inefficient.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Self-contained tokens, by contrast, SHOULD be validated locally by the resource server, assuming that there is a
+pre-established trust relationship between the resource server and the authorization server.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+For RESTful services processing Category 3-4 data, it's RECOMMENDED to validate all access tokens at the authorization
+server's token introspection endpoint (despite the performance penalty).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+As any other confidential, access tokens MUST be kept confidential in transit and at rest, and only shared among the
+authorization server, the resource servers the access token is valid for (in a micro-services architecture, access
+tokens MAY be propagated between services), and the client to whom the access token is issued.
+====
+
+Self-contained tokens contain a set of claims stored in the header part of an
+https://datatracker.ietf.org/doc/html/rfc7519[RFC 7519] compliant JSON Web Token (JWT; pronounced "jot") object
+represented as either a https://datatracker.ietf.org/doc/html/rfc7515[JSON Web Signature (JWS)] and/or
+https://datatracker.ietf.org/doc/html/rfc7516[JSON Web Encryption (JWE)] structure.
+
+// TODO: decide whether we should provide an in-depth description or simply a link to the RFC
+
+A claim is simply a key/value pair holding some piece of information asserted about an entity that can be used for
+access control decisions.
+
+The JWT standard distinguishes between reserved claims and custom claims (public or private).
+
+Reserved claims are standardized claims that have been defined to enable interoperability.
+A full list of reserved claims can also be found on the https://www.iana.org/assignments/jwt/jwt.xhtml[IANA JSON Web
+Token Claims Registry].
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A resource server SHOULD validate the reserved claims provided in an access token’s header.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server before the time provided by the "nbf" (not before) claim and after the time provided by the "exp" (expiration time) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server if it cannot identify itself with a value (case-sensitive string) in the “aud" (audience) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server if it cannot identify the authorization server in the value (case-sensitive string) provided by the "iss" (issuer) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The resource server SHOULD rely on the unique identifier provided by the "sub" (subject) claim to identify the resource owner.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The resource server SHOULD rely on the unique identifier provided by the "jti" (JWT identifier) claim to enforce the non-reuse of access tokens.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Indeed, access tokens MUST be short-lived (lifetime should not exceed a few minutes) and used at most once.
+====
+
+Custom claims are simply non-reserved claims.
+
+Public claims are custom claims whose names are collision-resistant.
+
+Collision-resistance is achieved through name-spacing.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The namespace identifier SHOULD be the internet domain name of the organization.
+====
+
+Private claims are custom claims whose names are not collision-resistant.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Public claims SHOULD be used in lieu of private claims in most scenarios.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Claims within a JWS are simply base64 encoded but carry a cryptographic signature for authentication and integrity.
+As such, they MUST NOT hold sensitive information!
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's strongly RECOMMENDED to rely on a cryptographic signature for JWS integrity protection.
+====
+
+Conversely, the use of a Message Authentication Code (MAC) for integrity protection is strongly discouraged (as it would
+allow any compromised service that can validate a JWT to create a new JWT using the same key).
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Claims within a JWE are signed then encrypted, and as such are entirely opaque to clients.
+As such, they MAY hold sensitive information.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+As far as algorithms requirements for JWS and JWE go, it's strongly RECOMMEND to use only ES256, ES256K, or RS256.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The unsecured "none" algorithm MUST NOT be used.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+To select the verification algorithm, RESTful services MUST rely on their local configuration rather than on the
+information in the JWT header.
+====
+
+In addition to the access token, the OAuth 2.0 specification foresees another token type: the "refresh token".
+
+The refresh token is a long-lived - usually opaque - token that can be issued by the authorization server to a client to
+allow it to obtain a new access token when the current becomes invalid or expires.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Just like the access token, the refresh token MUST be used at most once and MUST be kept confidential in transit and at
+rest.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+However, unlike the access token, a refresh token is intended to be used solely with authorization servers and MUST NOT
+be sent to resource servers.
+====
+
+The subset of capabilities delegated by a token can be specified through a scoping mechanism.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The authorization server MUST allow the client to specify the scope of the access request using the "scope" request
+parameter.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Since user consent is REQUIRED for public clients, the scope (resources and permissions) that the user is expected to
+grant MUST be explained in a clear and understandable manner.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The authorization server MUST use the "scope" response parameter to inform the client of the scope of the issued access
+token.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The scope of an access token MUST be as narrow as possible to adhere to the principle of least privilege.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+As tempting as it may be to try to centralize all authorization logic on the authorization server, OAuth 2.0 scopes MUST
+NOT be used to represent permissions (i.e., user privileges).
+
+Instead, permissions SHOULD be specified (authorization policy definition) and exercised (authorization policy
+enforcement) at the resource server (API) level.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Stemming from the above, access control decisions MUST be taken at the resource server level for every request by
+combining the scopes and the permissions.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+For permissions, it is strongly RECOMMENDED to follow the principle of "deny by default" and use Attribute-Based Access
+Control (ABAC) over Role-Based Access Control (RBAC). This of course does not apply to public resources.
+
+As OAuth 2.0 does not provide a policy language to define permission policies for fine-grained access control, it's
+RECOMMENDED to use it in conjunction with a policy-based access control authorization framework such as
+https://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html[XAML],
+https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-178.pdf[NGAC] or
+https://www.openpolicyagent.org/[OPA].
+====
+
+The OAuth 2.0 specification describes but five grants (or flows) for clients to obtain access - and in some cases
+refresh - tokens.
+
+An extensibility mechanism has, however, been foreseen to allow for additional grants to be defined.
+
+As a result, there are many different grants that are today supported by the various authorization servers that can be
+found on the market.
+
+Nevertheless, not all are considered safe by today's standards.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In scenarios involving a user, it's strongly RECOMMENDED - as per the latest OAuth 2.0 Security Best Current Practice
+(BCP) RFC - to rely on the Proof Key for Code Exchange (PKCE; pronounced “pixy”) grant for both public (i.e., clients -
+such as SPA - that are not capable of keeping a secret confidential) and confidential clients (i.e., clients that are
+capable of keeping a secret confidential) in scenarios where a user is present.
+====
+
+The PKCE grant, as defined in https://datatracker.ietf.org/doc/html/rfc7636[RFC 7636], is an extension to the
+Authorization Code grant designed to prevent Cross-Site Request Forgery (CSRF) and authorization code injection attacks.
+
+// TODO: we should provide a comprehensive description and examples for the PKCE flow
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In scenarios not involving a user, it's RECOMMENDED to rely on the Client Credentials grant.
+====
+
+// TODO: we should provide a comprehensive description and examples for the Client Credentials flow
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Insecure flows such as the Resource Owner Password Credentials Grant or Implicit Grant MUST NOT be used anymore, ever.
+====
+
+// TODO: decide whether we should cover the device Authorization Flow or not
+
+== OIDC
+
+Authentication, sometimes shortened to "AuthN", is the act of confirming the identity claim of an entity.
+
+Built on top of OAuth 2.0 and designed with social login in mind, the OpenID Connect 1.0 (OIDC) protocol became - for
+better or for worse - the current de-facto standard for providing single sign-on (SSO) authentication, mostly as a
+consequence of the widespread adoption of OAuth 2.0.
+
+As a suite of specifications, OIDC describes an interoperable and - relatively speaking - simple identity layer built on
+top of OAuth 2.0 to perform user authentication and obtain - in a RESTful manner - basic user information in the form of
+claims contained within a JWS structure called "ID token".
+
+The ID token is intended to be used solely by clients as a medium for the retrieval of information about a user.
+
+A RESTful service is not supposed to receive or process ID tokens.
+
+As such, OIDC is outside the scope of this document.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Developers SHOULD nevertheless be familiar with OIDC, because understanding it usually helps in clearing up any
+ambiguities from the OAuth 2.0 specification.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Regardless of whether OIDC is used or not, it is RECOMMENDED that a read-only /.well-known/jwks.json endpoint that
+returns the authorization server's public key set in JSON Web Key Set (JWKS) format be provided.
+====
+
+NOTE: A JWKS is a JSON data structure that represents a set of https://datatracker.ietf.org/doc/html/rfc7517[JSON Web
+Keys (JWK)].
+A JWK is a JSON data structure that represents a cryptographic key.
+
+This mechanism, introduced in the OpenID Connect Discovery specification, would allow resource servers to dynamically
+retrieve public keys used for token signature validation, in case key rotation is implemented.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server if it cannot identify the well-known JWKS resource in the value
+(case-sensitive string) provided by the "jku" (JWK Set URL) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The key identifier MUST be provided in the "kid" (key identifier) claim.
+====
+
+== Server configuration
+
+// TODO: add a short introductory paragraph
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST allow only the necessary HTTP methods and respond with a 405 Method Not Allowed HTTP response
+status code to requests using unsupported or unimplemented methods.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+API rate limiting SHOULD always be implemented to minimize damage from malicious automated attacks.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST respond with a 429 Too Many Requests HTTP response status code to callers that have exceeded their
+rate limit.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST NOT expose internal-use or management endpoints to the public Internet.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In case of failure, RESTful services MUST NOT pass technical details in error messages.
+
+Instead, it is RECOMMENDED that a unique, randomly generated correlation identifier be provided in the response to
+facilitate future troubleshooting.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST include the “Content-Type” HTTP header in all responses.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST set the “Cache-Control” HTTP header to no-store to prevent caching of sensitive information.
+====
+
+Cross-Origin Resource Sharing (CORS) is an HTTP header-based mechanism used to allow or disallow resource sharing
+between different origins (i.e., domains).
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services SHOULD allow only a specific domain or set of domains.
+
+Non-public RESTful services MUST NOT allow all domains (origins).
+====
+
+== HTTP message body
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+All requests to RESTful services handling Category 1-2 data SHOULD be digitally signed by the API consumer using JWS.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+All responses from RESTful services handling Category 1-2 data MUST be digitally signed by the API provider using JWS.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+To avoid obfuscating HTTP body data by wrapping the payload in a JWS envelope, the HTTP body MUST be represented as a
+detached JWS structure.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The signature MUST be provided in a custom “x-jws-signature” HTTP header.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The "application/jose" media type MUST be set to indicate that the content is signed.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+All requests to RESTful services handling Category 3-4 data MUST be digitally signed by the API consumer using JWS
+(detached) and encrypted using JWE compact serialization.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+All responses from RESTful services handling Category 3-4 data MUST be digitally signed by the API provided using JWS
+(detached) and encrypted using JWE compact serialization.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+All GET and DELETE requests MUST be converted to POST by appending the corresponding HTTP method to the URL (e.g., GET
+/employers/93017373 becomes POST /employers/93017373/get).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The "application/jose+jwe" media type MUST be set to indicate that the content is encrypted.
+====
+
+== Injection
+
+Injection attacks, regardless of the technology they target, arise from the interpretation of untrusted data.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST properly validate all input (length, type, format, range) and sanitize it (e.g., by coding or
+escaping) before interpretation.
+====
+
+== Logging, monitoring, and alerting
+
+Effective auditing (i.e., collection and processing of audit log data) and logging (i.e., collection and processing of
+technical log data) can be seen as complementary to access control and can help uncover abuse.
+
+NOTE: Although often used interchangeably, the terms audit log and audit trail have different meanings.
+The term audit log refers to a chronological sequence of audit records (i.e., records that contain evidence related to
+and resulting from security-related events).
+The term audit trail refers to a set of audit records from one or more audit logs that relate to a specific event and/or
+user.
+
+What's more, the GDPR has made it a legal requirement when processing personally identifiable information.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Logs MUST be written before and after all security-related events.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Logged data MUST be properly sanitized to prevent log injection attacks.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+If logged, tokens, credentials, personally identifiable information, or other sensitive information MUST be masked,
+sanitized, hashed, or encrypted.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Log integrity MUST be guaranteed at all times.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Logs MUST NOT be discarded before the end of the data retention period set by regulatory and contractual obligations,
+and MUST NOT be retained beyond that period.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It is RECOMMENDED to use a separate partition for file-based logs that are persisted on the file system.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+If possible, strict file-level permissions SHOULD also be applied.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It is RECOMMENDED to use a separate database account for logs that are persisted in a database.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's strongly RECOMMENDED to transmit it from distributed systems to a secure centralized log management system.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Although audit technical logs are typically collected for different purposes and kept separately, the two SHOULD have a
+consistent format to be easily correlated.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's RECOMMENDED to synchronize time across nodes to ensure consistent timestamps in logs.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Log monitoring and alerting MUST be automated whenever possible.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Alerts for potentially malicious activity MUST be manually reviewed by a human.
+====
+
+== Miscellaneous
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+When it comes to identifiers, sequential or otherwise predictable identifiers MUST NOT be used. Instead, it is strongly
+RECOMMENDED to use long, unique, random, and unpredictable identifiers such as
+https://datatracker.ietf.org/doc/html/rfc4122[RFC 4122]-defined UUIDs, also known as GUIDs.
+====
 
-* Authorization code grant (or webserver) flow: The web server authentication flow is used by applications that are hosted on a secure server. A critical aspect of the webserver flow is that the server must be able to protect the issued client application's secret.
-* Implicit grant (or user agent) flow: The user agent authentication flow is used by client applications residing on the user's device. This can be implemented in a browser using a scripting language such as JavaScript or Flash. These client applications cannot keep the client application secret confidential.
-* Resource owner password credentials flow: This user name and password authentication flow can be used when the client application already has the resource owner's credentials.
-* Client credentials grant flow: This user name and password flow is used when the client application needs to directly access its own resources on the resource server. Only the client application's credentials are used in this flow. The resource owner's credentials are not required.
-* JWT flow: This flow is similar to OAuth 2.0 client credentials. A JSON Web Token (JWT) is a JSON-based security token encoding that enables identity and security information to be shared across security domains.
-* Refresh token: After the client application has been authorized for access, it can use a refresh token to get a new access token. This is only done after the consumer already has received an access token using the authorization code grant or resource owner password credentials flow.
-* Revoke token flow: A revoke token request causes the removal of the client application permissions associated with the particular token to access the end-user's protected resources.
-* Token information service flow: The OAuth token information service responds to requests for information on a specified OAuth 2.0 access token.
-
-
-=== OpenID Connect
-
-OpenID Connect 1.0 is a simple identity layer on top of the OAuth 2.0 protocol. It allows Clients to verify the identity of the End-User based on the authentication performed by an Authorization Server, as well as to obtain basic profile information about the End-User in an interoperable and REST-like manner.
-
-OpenID Connect is an open standard that organizations use to authenticate users. Identity Providers use this so that users can sign in to their servers, and then access other websites and applications without having to log in or share their sign-in information. 
-
-https://idp.iamfas.belgium.be/fasui/login
-
-image::image5.png[image,width=624,height=423]
-
-
-
-==  Securing REST APIs
-
-
-=== Multiple Security Levels
-
-We could need various security requirements for different APIs. For instance, providing OAuth2 clientID and secret might be sufficient to search addresses of the notaries, but for Judicial services to query criminal records of a person, we need more security by involving digital certificates to encrypt the requests and responses.
-
-Therefore, we have defined multiple security levels for APIs;
-
-* *L0 (No policy)* – Public APIs which doesn’t require any security requirements. Consumer and provider don’t make any security checks.
-* *L1* - +++OAuth2 via Secret+++: The consumer needs an access token to consume the API of the provider. OAuth2 Server provides an access token via Authorization code grant or Client credentials grant flows. The consumer uses the access token to make requests to the API provider.
-* *L2*- +++OAuth2 via JWT:+++ The consumer needs an access token to consume the API of the provider. OAuth2 Server provides an access token via JWT Bearer flow. The consumer prepares a JWT using its Private Key and sends it to the OAuth Server to get an access token. The server validates the access token request by using the Public Key of the consumer. If it is verified, an access token is given to the consumer. The consumer uses the access token to make requests to the API provider.
-* *L3* - +++OAuth2 via JWT + JWS:+++ An access token is retrieved using the *L2* flow. Instead of sending the request directly, the consumer prepares a JWS object from the request body using its Private Key. The Provider verifies the request (JWS) using the Public Key of the Consumer. Before sending the response back to the consumer, the Provider prepares a JWS object from the response using its Private Key. Finally, the Consumer verifies the response using the public key of the Provider.
-* *L4* - +++OAuth2 via JWT + JWE+++: An access token is retrieved using the *L2* flow. Before sending the request, the consumer encrypts it and prepares a JWE object using the Public Key of the Provider. When the provider receives the request (JWE), it decrypts the JWE object using its Private Key. Similarly, the Provider uses the public key of the consumer to encrypt the response. Finally, the consumer decrypts the response using its own Private Key.
-
-[width="100%",cols="21%,25%,12%,22%,20%",options="header",]
-|===
-|*Security Level* |*AuthN&Z* |*Integrity* |*Non-repudiation* |*Confidentiality*
-|L0 |No |No |No |No
-|L1 |Yes (via Secret) |No |No |No
-|L2 |Yes (via Certificate) |No |No |No
-|L3 |Yes |Yes |Yes |No
-|L4 |Yes |Yes |Yes |Yes
-|===
-
-=== Sharing the Public Keys with Consumers via JWK
-
-The JWK is nothing more than another representation of the (public) key of a certificate keypair and the JWK Set is simply a list of one or more JWKs.
-
-We need to convert the Public keys to JWK objects and group them in a JWK Set. Various tools can be used and nearly all software development languages have support or extensions to be able to do that. Here are two samples for Python:
-
-* https://jwcrypto.readthedocs.io/en/latest/jwk.html
-* https://docs.authlib.org/en/latest/jose/jwk.html#jwk-guide
-
-The resulting JWK Set must contain (at least) two JWKs: one whereby the “use” parameter is ”enc” (for encryption) and another with “sig” (for signature).
-
-This JWK Set is a JSON formatted file and you should place that on a publicly available URL and share that link with the other parties to be integrated.
-
-To be elaborated for specifying mandatory fields for JWKS
-
-=== OAuth2 Access Tokens
-
-To access APIs secured by an Authorization Server, the consumer must provide an access token in the HTTP Authorization header.
-
-==== Token scope (scope)
-
-Scope is a mechanism in OAuth 2.0 to limit the usage of access tokens.
-
-To be defined the naming conventions for scopes.
-
-==== Token Expiration Time (expires_in)
-
-Expiration time on or after which the access token MUST NOT be accepted for processing.
-
-The expiration time for issued access tokens should be a maximum of 1 hour.
-
-=== Using JWT for Access Token Requests
-
-JWT Bearer grant type is already provided by most API Managers. For instance, Axway API Manager documentation describes it here.
-
-https://docs.axway.com/bundle/axway-open-docs/page/docs/apim_policydev/apigw_oauth/oauth_flows/oauth_flows_jwt/index.html[https://docs.API Manager.com/bundle/API Manager-open-docs/page/docs/apim_policydev/apigw_oauth/oauth_flows/oauth_flows_jwt/index.html]
-
-This grant type is an extension to the https://tools.ietf.org/html/rfc6749[RFC6749-The OAuth 2.0 Authorization Framework standard] and defined in the https://tools.ietf.org/html/rfc7523[RFC7523-JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants]. Consumers provide a JSON Web Token (JWT) to request an access token from the Authorization Server.
-
-JWT contains information (a set of claims) that can be verified and trusted with a digital signature. In its most simple form, JWT has three distinct parts that are URL encoded for transport:
-
-* Header: The header contains the metadata for the token and at a minimum contains the type of the signature and/or encryption algorithm
-* Claims: The claims contain any information in JSON format
-* Signature: The headers and claims digitally signed using the algorithm specified in the header
-
-There are some best practices to use JWT more securely. Here are some of them;
-
-* Always verify the signature before you trust any information in the JWT.
-* Unsecured JWT objects should not be permitted. Put another way, while you are verifying the signature, if the signature algorithm is set to ‘none’, it should fail verification.
-* Do not contain any sensitive data in a JWT. These tokens are usually signed to protect against manipulation (not encrypted) so the data in the claims can be easily decoded and read. For example, you wouldn’t want to include a user’s address in a JWT; you would want to store a link to the user’s record or another identifier that is opaque and have your application look up the information.
-* If you do need to store sensitive information in a JWT, check out JSON Web Encryption (JWE).
-* To be able to resistant against the replay attacks, include a nonce (jti claim), expiration time (exp claim), and creation time (iat claim) in the claims.
-
-
-==== What you need
-
-* Private Key of your certificate
-* Public Key of your certificate _(to be shared with the Provider)_
-* OAuth2 ID _(provided by the Authorization Server)_
-
-==== How to create a JWT
-
-.A sample JWT (Source: http://www.jwt.io[www.jwt.io])
-image::image6.png[image,width=468,height=248]
-
-To create a valid JWT object to be able to request an access token, follow these steps:
-
-image::image7.png[image,width=468,height=145]
-* Construct a header to define the algorithm that is used to secure the JWT.
-
-[width="100%",cols="16%,34%,18%,32%",options="header",]
-|===
-|*Parameter* |*Description* |*Required* |*Value/ [Description]*
-|alg |Identifies the cryptographic algorithm used to secure the JWT. |Must |RS256
-|typ |Declare the media type. |Optional |JWT
-|jku |JWK Set URL refers to a resource for a set of JSON-encoded public keys, one of which corresponds to the key used to digitally sign the JWT. |Optional |\{URL}
-|jkw |JSON Web Key, the public key that corresponds to the key used to digitally sign the JWT. |Optional |\{JWK Set}
-|kid |Key ID indicates which key was used to secure the JWT. |Optional |\{Thumbprint (x5t#S256) of the signing certificate}
-|===
-.Sample JWT Header
-```
-{
-    "alg": "RS256",
-    "typ": "JWT"
-}
-```
-
-* Encode the header using Base64URL as defined in http://tools.ietf.org/html/rfc4648#page-7.
-
-```
-eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9
-```
-
-* Construct a JSON Claims Set for the JWT payload.
-
-[width="100%",cols="15%,44%,25%,16%",options="header",]
-|===
-|*Parameter* |*Description* |*Required* |*Value/ [Description]*
-|iss |Issuer identifies the principal that issued the JWT. For instance, the OAuth Client ID of the consumer |Must |
-|sub |Subject identifies the principal that is the subject of the JWT. The claims in a JWT are normally statements about the subject. |Must |
-|aud |Audience identifies the authorization server as an intended audience. The authorization server must verify that it is an intended audience for the token. |Must |
-|exp |Expiration Time identifies the expiration time on or after which the JWT must not be accepted for processing. Should be later than the iat claim |Must a|
-\{Seconds since the Epoch}
-
-_e.g. 1615198526 = March 8, 2021 10:15:26 AM_
-
-|iat |Issued At identifies the time at which the JWT was issued. |Must a|
-\{Seconds since the Epoch}
-
-_e.g. 1615198426 = March 8, 2021 10:13:46 AM_
-
-|jti |JWT ID provides a unique identifier for the JWT and can be used to prevent the JWT from being replayed. |Optional |
-|===
-.Sample JWT Claims
-```
-{
-    "aud": "https://fsp.server/api/oauth2/token",
-    "iss": "test.be---20078d65-1111-2222-3333-4af84a203369",
-    "exp": 1615199102,
-    "scope": "BOSA",
-    "iat": 1615198802,
-    "sub": "test.account@fgov.be"
-}
-```
-* Encode the JWT Claims using Base64URL.
-
-```
-eyJzdWIiOiJ0ZXN0LmFjY291bnRAZmdvdi5iZSIsImlzcyI6InRlc3QuYmUtLS0yMDA3OGQ2NS0xMTExLTIyMjItMzMzMy00YWY4NGEyMDMzNjkiLCJleHAiOjE2MTUxOTkxMDIsImlhdCI6MTYxNTE5ODgwMiwic2NvcGUiOiJCT1NBIiwiYXVkIjoiaHR0cHM6Ly9mc3Auc2VydmVyL2FwaS9vYXV0aDIvdG9rZW4ifQ
-```
-
-* Concatenate encoded claims and header with a “.” (dot) to prepare the input string which is signed using SHA256 with RSA. You need to provide your private key to the signing algorithm. Several examples for signing are given in https://tools.ietf.org/html/rfc7520[RFC-7520: Examples of Protecting Content Using JSON Object Signing and Encryption (JOSE)].
-
-*Input String (data to be signed):*
-```
-eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LmFjY291bnRAZmdvdi5iZSIsImlzcyI6InRlc3QuYmUtLS0yMDA3OGQ2NS0xMTExLTIyMjItMzMzMy00YWY4NGEyMDMzNjkiLCJleHAiOjE2MTUxOTkxMDIsImlhdCI6MTYxNTE5ODgwMiwic2NvcGUiOiJCT1NBIiwiYXVkIjoiaHR0cHM6Ly9mc3Auc2VydmVyL2FwaS9vYXV0aDIvdG9rZW4ifQ
-```
-*Signature:*
-```
-pjtgHejTUbhJcdMs34mlC1NzQrrhhPV8WWM-HTCe08V9ZxyMNlpH19F_ApZ-3Xk2dEag0YGuBz_ksov9U_uIMn-ArvGZwXoHHRmZ9hraM-U-AKz73b2UMfsg83jAznQ5g0kJh6CR69o8Wae1-tb-wW0pn9Lc7MaIM943aOgSalJsQF2Ixw1JazZjs3wCgYbpZQ9DRoqr02xiHD-tFWK5JRARzqtXRJQldNr_nnufJrXWPxEUYxhKGYtHyanKmRu8GBuB7nb9h9n7jZBiHnTNpUNUwTI4EZz_byxnKXLyVQgp56yZL60w6IBNEsmwcJKTgGz33guohQOQZXIEm5ds4A
-```
-
-* Concatenate the signature with a .(dot) to the end of the input string. The result is the following JWT:
-
-```
-eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LmFjY291bnRAZmdvdi5iZSIsImlzcyI6InRlc3QuYmUtLS0yMDA3OGQ2NS0xMTExLTIyMjItMzMzMy00YWY4NGEyMDMzNjkiLCJleHAiOjE2MTUxOTkxMDIsImlhdCI6MTYxNTE5ODgwMiwic2NvcGUiOiJCT1NBIiwiYXVkIjoiaHR0cHM6Ly9mc3Auc2VydmVyL2FwaS9vYXV0aDIvdG9rZW4ifQ.pjtgHejTUbhJcdMs34mlC1NzQrrhhPV8WWM-HTCe08V9ZxyMNlpH19F_ApZ-3Xk2dEag0YGuBz_ksov9U_uIMn-ArvGZwXoHHRmZ9hraM-U-AKz73b2UMfsg83jAznQ5g0kJh6CR69o8Wae1-tb-wW0pn9Lc7MaIM943aOgSalJsQF2Ixw1JazZjs3wCgYbpZQ9DRoqr02xiHD-tFWK5JRARzqtXRJQldNr_nnufJrXWPxEUYxhKGYtHyanKmRu8GBuB7nb9h9n7jZBiHnTNpUNUwTI4EZz_byxnKXLyVQgp56yZL60w6IBNEsmwcJKTgGz33guohQOQZXIEm5ds4A
-```
-
-==== How to get an access token
-
-You should send a POST request to the Access Token URI of the Authorization Server. In your request you should set the grant type as urn:ietf:params:oauth:grant-type:jwt-bearer and provide the assertion which should be a JWT object.
-
-[width="100%",cols="14%,38%,48%",options="header",]
-|===
-|*Parameter* |*Description* |*Value*
-|grant_type |Grant type to be used to request an access token. |urn:ietf:params:oauth:grant-type:jwt-bearer
-|assertion |Must be set to the JWT bearer token. |\{JWT}
-|===
-
-*Sample Request (Body):*
-
-```
-grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJodHRwczovL2ZzcC5zZXJ2ZXIvYXBpL29hdXRoMi90b2tlbiIsImlzcyI6IkJPU0FBdXRvbWF0ZWR0ZXN0aW5nLXRlc3QuYm9zYS5iZS0tLTIwMDc4ZDY1LTdiMGYtNDg1Mi1hODE5LTRhZjg0YTIwMzM2OSIsImV4cCI6MTYxNTIwMTgxMiwic2NvcGUiOiJCT1NBIiwiaWF0IjoxNjE1MjAxNTEyLCJzdWIiOiJib3NhLmF1dG9tYXRlZC50ZXN0QGJvc2EuZmdvdi5iZSJ9.4oyNEaf2fe7q7qtvMrZdgZD5n773vt5SH1Hlv1AYvmLJC8X1OefLOCjZ8acP2kWgJ4NnNYH_5pmMaXovjBEMdBNM78TNS2KsR67tB183dBjz1IS-mXOfpMLoegiyoPZx2djB9EH5k8-AlcKvzDc2ZRBTJXqwdVNGvWof7mG-th7jpOSokT3A7RNEpOk_SFXs0F6bYvdB9vkMTN4fK86Yg0-vY0jvY5_JdM1KIy7tIq_m9A43xOsyxXPZdKdlDOAzsQmGFw3v_GfvojGpy01FSuqvhyZt3Z0QbpzcjyQG1FzEHDaqDtXKXgdaMxm4M4ijJRoAuWK1fDYpudrPelvjdQ
-```
-*Sample Response (Body):*
-
-```
-{
-    "access_token":"uVCywFBb3Css9oMM3MY2ANLiFk5Ti4itJPlrS8K98nPrP8JHpB7sAE",
-    "token_type":"Bearer",
-    "expires_in":3600,
-    "scope":"BOSA"
-}
-```
-
-=== Using JWS for Signing Request and Response
-
-A valid digital signature proves that the message was created by a known sender, that the sender cannot deny having sent the message (*non-repudiation*), and that the message has not tampered with during the transition (*integrity*).
-
-The JSON Web Signature defined in the https://tools.ietf.org/html/rfc7515[RFC7515-JSON Web Signature (JWS)] standard describes the process of creation and validation of a signed payload. Its structure is the same as the JWT which has been detailed in the previous section.
-
-We are using the JWS Compact Serialization, defined in https://tools.ietf.org/html/rfc7515#page-7[Section 3.1] in the standard.
-
-For cryptographic operations we are using the followings:
-
-* Algorithm: SHA256 (RSA)
-* Padding: PKCS1v15
-
-There are two ways of using JWS. We will explain how to use both options in detail.
-
-* JWS defined in https://tools.ietf.org/html/rfc7515[RFC7515]: This is the most common use of JWS.
-* Detached JWS which is a JWS with Unencoded Payload Option as defined in https://tools.ietf.org/html/rfc7797[RFC7797]: This skips encoding the payload which makes performance improvement for large payloads.
-
-*_+++If you are transmitting large payloads or uploading large files, consider using the “Detached JWS” for the unencoded payload option.+++_*
-
-==== What you need
-
-* Private Key of your certificate
-* Public Key of your certificate _(to be shared with the Provider)_
-* OAuth2 ID _(provided by the Authorization Server)_
-* Public Key of the Provider _(provided as a JWKS by the Provider)_
-
-
-==== How to create a JWS
-
-image:image8.png[image,width=468,height=148]
-
-To create a valid JWS object to be able to request an access token, follow these steps:
-
-* Construct a header to define the algorithm that is used to sign the JWS.
-
-[width="100%",cols="16%,32%,15%,37%",options="header",]
-|===
-|*Parameter* |*Description* |*Required* |*Value/ [Description]*
-|alg |Identifies the cryptographic algorithm used to secure the JWS. |Must |RS256
-|typ |Declare the media type. |Optional |JOSE
-|jku |JWK Set URL refers to a resource for a set of JSON-encoded public keys, one of which corresponds to the key used to digitally sign the JWS. |Optional |\{URL}
-|jkw |JSON Web Key is the public key that corresponds to the key used to digitally sign the JWS. |Optional |\{JWK Set}
-|kid |Key ID indicates which key was used to secure the JWS. |Optional |\{Thumbprint (x5t#S256) of the signing certificate}
-|===
-.Sample JWS Header
-```
-{
-    "alg": "RS256"
-}
-```
-
-* Encode the header using Base64URL as defined in http://tools.ietf.org/html/rfc4648#page-7.
-
-```
-eyJhbGciOiJSUzI1NiJ9
-```
-
-* Construct the content which will be signed as the JWS payload. It is *NOT* obliged to be a JSON.
-```
-Sample content
-```
-
-* Encode the UTF-8 representation of the payload using Base64URL.
-
-```
-U2FtcGxlIGNvbnRlbnQ
-```
-
-* Concatenate encoded payload and header with a “.” (dot) to prepare the input string which is signed using SHA256 with RSA. You need to provide your private key to the signing algorithm. Several examples for signing are given in https://tools.ietf.org/html/rfc7520[RFC-7520: Examples of Protecting Content Using JSON Object Signing and Encryption (JOSE)].
-
-*Input String (data to be signed):*
-```
-eyJhbGciOiJSUzI1NiJ9.U2FtcGxlIGNvbnRlbnQ
-```
-*Signature:*
-```
-qbXsh9EWdtq-4LHEqFFTcBOCqJKsr8aU1VuVSb_XCbwuJCKL9AryK4ZOC-I5CfphxOLHlJvp4wxDBYLa9GWw-z7syy8eBGaqAPX2H00Lvgn--1F3FZ_Q3c-bBWXQmb5GYVpJYfzuMkgG23P6RGOrD3borV6lcS9R0mO28o3BQO_M2JuV27C4P_EykFUOIn2JFMoFrrNukh8LP4Ak8RpkhxN3QF_kT0CjWZO7uzGtYR4xPMIuniQPGHTzeDexufW237NrHEW_J5xefj4ETSE0xiAxn7ZSvZOGcPpfKWYQuREd7DpleBakPcdAybtKu7bdrHN9a-4O4Cu47q1ekS9D3g
-```
-
-* Concatenate the signature with a .(dot) to the end of the input string. The result is the following JWS:
-
-```
-eyJhbGciOiJSUzI1NiJ9.U2FtcGxlIGNvbnRlbnQ.qbXsh9EWdtq-4LHEqFFTcBOCqJKsr8aU1VuVSb_XCbwuJCKL9AryK4ZOC-I5CfphxOLHlJvp4wxDBYLa9GWw-z7syy8eBGaqAPX2H00Lvgn--1F3FZ_Q3c-bBWXQmb5GYVpJYfzuMkgG23P6RGOrD3borV6lcS9R0mO28o3BQO_M2JuV27C4P_EykFUOIn2JFMoFrrNukh8LP4Ak8RpkhxN3QF_kT0CjWZO7uzGtYR4xPMIuniQPGHTzeDexufW237NrHEW_J5xefj4ETSE0xiAxn7ZSvZOGcPpfKWYQuREd7DpleBakPcdAybtKu7bdrHN9a-4O4Cu47q1ekS9D3g
-```
-
-* Prepare your HTTP message using the JWS.
-** The access tokens in OAuth 2.0 are of type *bearer*, meaning the client needs to pass the token with each request.
-** The followings are the expected HTTP headers:
-
-[width="100%",cols="22%,19%,17%,42%",]
-|===
-|*HTTP Header* |*Description* |*Required* |*Value*
-|Authorization |Must be set to the access token. |Must |Bearer \{Access Token}
-|Content-Type |Content type of the payload. |Optional a|
-\{JSON body} -> application/jose+json
-
-\{Non JSON body} -> application/jose
-
-|===
-
-==== How to create a Detached JWS
-
-image::image9.png[image,width=468,height=160]
-
-To create a valid JWS object to be able to request an access token, follow these steps:
-
-* Construct a header to define the algorithm that is used to sign the JWS.
-
-[width="100%",cols="15%,32%,12%,41%",options="header",]
-|===
-|*Parameter* |*Description* |*Required* |*Value/ \{Description}*
-|alg |Identifies the cryptographic algorithm used to secure the JWS. |Must |RS256
-|typ |Declare the media type. |Optional |JOSE
-|jku |JWK Set URL refers to a resource for a set of JSON-encoded public keys, one of which corresponds to the key used to digitally sign the JWS. |Optional |\{URL}
-|jkw |JSON Web Key, the public key that corresponds to the key used to digitally sign the JWS. |Optional |\{JWK Set}
-|kid |Key ID indicates which key was used to secure the JWS. |Optional |\{Thumbprint (x5t#S256) of the signing certificate}
-|crit |Critical indicates that extensions to this specification are being used that MUST be understood and processed. Its value is an array listing the Header Parameter names present in the JOSE Header that use those extensions. |Mandatory |[“b64”]
-|b64 |Base64URL-Encode payload determines whether the payload is represented in the JWS as Base64URL encoded or as the payload value itself with no encoding performed. |Mandatory |false
-|===
-
-.JWS with Unencoded Payload Header
-```
-{
-    "alg":"RS256",
-    "b64":false,
-    "crit":["b64"]
-}
-```
-
-* Encode the header using Base64URL as defined in http://tools.ietf.org/html/rfc4648#page-7.
-
-```
-eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19
-```
-
-* Construct the UTF-8 representation of the payload which will be signed as the JWS payload. It is *NOT* obliged to be a JSON.
-
-```
-Sample content
-```
-
-* Concatenate encoded header and unencoded payload with a “.” (dot) to prepare the input string which is signed using SHA256 with RSA. You need to provide your private key to the signing algorithm. Several examples for signing are given in https://tools.ietf.org/html/rfc7520[RFC-7520: Examples of Protecting Content Using JSON Object Signing and Encryption (JOSE)].
-
-*Input String (data to be signed):*
-```
-eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19.Sample content
-```
-*Signature:*
-```
-CV_KdWKFu3PyIAN_qv9R89tC0OQBLow7ycF_TpG7pwvZi4jx_v44gLPvZz814DURTZOTUWHGM09BYVwaJYTPGZWOkjRO8ynJy37NGzQ6Amu3o1vnFraPbKySgqCqNiNEbBAa8wCrbgMCww6NTT5tB2IKjWOMwdwVbnnb4JB9Q5CUKGWevrKnGhl-fGf96AU2YQGeBPlHo_BlpC--UOsgRdMrgHyl3t4eiQRw68CfLGokRQUIRorzM_Aq5bf6-H88eexcJ6W9PT7RzRtXhEl9GNf-0NGKMJep3mEaRraXG-t8fxDKj2nrxmEZZV4Riog5tpaj9NmL8veAkjweA7RdTA
-```
-
-* Don’t include the payload and concatenate encoded header and the signature with a “.” (dot). The result is the following JWS _(please be aware of the empty payload part)_:
-```
-eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..CV_KdWKFu3PyIAN_qv9R89tC0OQBLow7ycF_TpG7pwvZi4jx_v44gLPvZz814DURTZOTUWHGM09BYVwaJYTPGZWOkjRO8ynJy37NGzQ6Amu3o1vnFraPbKySgqCqNiNEbBAa8wCrbgMCww6NTT5tB2IKjWOMwdwVbnnb4JB9Q5CUKGWevrKnGhl-fGf96AU2YQGeBPlHo_BlpC--UOsgRdMrgHyl3t4eiQRw68CfLGokRQUIRorzM_Aq5bf6-H88eexcJ6W9PT7RzRtXhEl9GNf-0NGKMJep3mEaRraXG-t8fxDKj2nrxmEZZV4Riog5tpaj9NmL8veAkjweA7RdTA
-```
-
-* Prepare your HTTP message using the JWS.
-** The access tokens in OAuth 2.0 are of type *bearer*, meaning the client needs to pass the token with each request.
-** The followings are the expected HTTP headers:
-
-[width="100%",cols="22%,19%,17%,42%",]
-|===
-|*HTTP Header* |*Description* |*Required* |*Value*
-|Authorization |Must be set to the access token. |Must |Bearer \{Access Token}
-|BelGov-_Org_-JWS |JWS object to be sent. |Must |\{Detached JWS}
-|Content-Type |Content type of the payload. |Optional a|
-\{JSON body} -> application/jose+json
-
-\{Non JSON body} -> application/jose
-
-|===
-
-=== Using JWE for Encryption of Request and Response
-
-T.B.D.
