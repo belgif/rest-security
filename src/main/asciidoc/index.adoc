@@ -51,9 +51,11 @@ and service integration.
 
 Unsurprisingly and as a result, REST APIs have become a prime target for threat actors.
 
-Accordingly, any self-respecting organization would be well advised to invest in REST API security to ensure
-confidentiality, integrity, and availability (i.e., the three fundamental tenets or objectives of information security,
-colloquially known as the CIA-triad) of its data.
+Add to this the fact that there are still many "legacy" REST APIs running in production that were released in the early
+days of REST, long before the tools, API security standards and best practices were widely available - and as such come
+with technical debt -, and it becomes clear that any self-respecting organization would be well advised to invest in
+REST API security to ensure confidentiality, integrity, and availability (i.e., the three fundamental tenets or
+objectives of information security, colloquially known as the CIA-triad) of its data and its digital environment.
 
 What's more, if the data contains personally identifiable information (PII), the organization becomes legally compelled
 under the GDPR to ensure that it is processed in a way that ensures appropriate privacy and security.
@@ -142,18 +144,20 @@ compromise the proper functioning of the country, international institutions, or
 classified as Category 4.
 
 
+// the following is based on the feedback provided by the FISP committee
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-// TODO: if we agree on this proposal, we should provide details and examples
-For it is strongly recommended that the category be clearly indicated on the media, a RESTful API SHOULD expose a
-"/dataClassification" endpoint that returns the category of data being processed in accordance with the data
-classification model provided by the FISP guide.
+For it is strongly recommended that the category be clearly indicated on the media, a RESTful API should return the
+category of the processed data (according to the data classification model provided in the FISP guide) in a
+dataClassification property for each request or response that includes a payload (body).
 ====
 
 === Protection in transit
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
 When data is to be transmitted over a network, encryption in transit MUST be considered.
+It's REQUIRED to encr
+Encryption in transit is REQUIRED for all external traffic and strongly RECOMMENDED for internal traffic.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
@@ -171,7 +175,7 @@ Its predecessor, the now-deprecated Secure Sockets Layer (SSL) protocol, MUST NO
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-It's strongly RECOMMENDED not to enable TLS 1.0 in an attempt to provide support to legacy clients.
+It's strongly RECOMMENDED not to enable TLS 1.0 or TLS 1.1 in an attempt to provide support to legacy clients.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
@@ -204,7 +208,7 @@ SSL configuration generator for web, database, and mail software.
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-When data is to be persisted on disk, encryption at rest MUST be considered.
+When data is to be persisted on disk, encryption at rest SHOULD be considered.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
@@ -231,7 +235,7 @@ application-level secrets at runtime.
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-Tokens MUST only be stored either in memory or on cryptographic hardware through a secure storage API.
+Tokens SHOULD only be stored either in memory or on cryptographic hardware through a secure storage API.
 ====
 
 == Access control
@@ -351,7 +355,7 @@ authorization server, the resource servers the access token is valid for (in a m
 tokens MAY be propagated between services), and the client to whom the access token is issued.
 ====
 
-Self-contained tokens contain a set of claims stored in the header part of an
+Self-contained tokens contain a set of claims stored in the payload part of an
 https://datatracker.ietf.org/doc/html/rfc7519[RFC 7519] compliant JSON Web Token (JWT; pronounced "jot") object
 represented as either a https://datatracker.ietf.org/doc/html/rfc7515[JSON Web Signature (JWS)] and/or
 https://datatracker.ietf.org/doc/html/rfc7516[JSON Web Encryption (JWE)] structure.
@@ -369,7 +373,7 @@ Token Claims Registry].
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-A resource server SHOULD validate the reserved claims provided in an access token’s header.
+A resource server SHOULD validate the reserved claims provided in an access token’s payload.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
@@ -423,7 +427,7 @@ Public claims SHOULD be used in lieu of private claims in most scenarios.
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
 Claims within a JWS are simply base64 encoded but carry a cryptographic signature for authentication and integrity.
-As such, they MUST NOT hold sensitive information!
+As such, tokens MUST NOT hold sensitive information.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
@@ -439,6 +443,14 @@ allow any compromised service that can validate a JWT to create a new JWT using 
 Claims within a JWE are signed then encrypted, and as such are entirely opaque to clients.
 As such, they MAY hold sensitive information.
 ====
+In select cases, when working with the JWE, it may be useful to have an unencrypted representation of certain claims.
+In such cases, it is permissible to reproduce these claims as header parameters in the JWE, provided that they can be
+securely transmitted in an unencrypted manner.
+If such replicated claims are present, the receiving application SHOULD verify that their values are identical.
+
+RFC 7519 registers the header parameter names "iss" (issuer), "sub" (subject) and "aud" (audience) for the purpose of
+providing unencrypted replicas of these claims in JWE.
+Other header parameter names MAY be used, as appropriate.
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
@@ -520,7 +532,7 @@ Control (ABAC) over Role-Based Access Control (RBAC). This of course does not ap
 
 As OAuth 2.0 does not provide a policy language to define permission policies for fine-grained access control, it's
 RECOMMENDED to use it in conjunction with a policy-based access control authorization framework such as
-https://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html[XAML],
+https://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html[XACML],
 https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-178.pdf[NGAC] or
 https://www.openpolicyagent.org/[OPA].
 ====
@@ -607,7 +619,7 @@ A JWT MUST NOT be accepted by the resource server if it cannot identify the well
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-The key identifier MUST be provided in the "kid" (key identifier) claim.
+The key identifier MUST be provided in the "kid" (key identifier) header parameter.
 ====
 
 == Server configuration
@@ -668,12 +680,12 @@ Non-public RESTful services MUST NOT allow all domains (origins).
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-All requests to RESTful services handling Category 1-2 data SHOULD be digitally signed by the API consumer using JWS.
+Requests to RESTful services handling Category 1-2 data MAY be digitally signed by the API consumer using JWS.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-All responses from RESTful services handling Category 1-2 data MUST be digitally signed by the API provider using JWS.
+Responses from RESTful services handling Category 1-2 data MUST be digitally signed by the API provider using JWS.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
@@ -727,6 +739,7 @@ escaping) before interpretation.
 
 == Logging, monitoring, and alerting
 
+// This section exceeds the scope of this exercise.
 Effective auditing (i.e., collection and processing of audit log data) and logging (i.e., collection and processing of
 technical log data) can be seen as complementary to access control and can help uncover abuse.
 
@@ -787,9 +800,17 @@ It's strongly RECOMMENDED to transmit it from distributed systems to a secure ce
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-Although audit technical logs are typically collected for different purposes and kept separately, the two SHOULD have a
-consistent format to be easily correlated.
+Although audit and technical logs are typically collected for different purposes and kept separately, the two SHOULD
+have a consistent format to be easily correlated.
 ====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A tracing ID MAY be used to uniquely identify messages and track the flow of calls between APIs and organizations.
+====
+
+Please refer to the https://www.gcloud.belgium.be/rest/#tracing[tracing section] of the
+https://www.gcloud.belgium.be/rest/#tracing[REST guidelines] for more info.
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
