@@ -1,4 +1,4 @@
-:update-date: 2021-11-11
+:update-date: 2022-03-12
 :doctype: book
 :docinfo:
 :toc: left
@@ -552,7 +552,7 @@ Nevertheless, not all are considered safe by today's standards.
 In scenarios involving a user, it's strongly RECOMMENDED - as per the latest OAuth 2.0 Security Best Current Practice
 (BCP) RFC - to rely on the Proof Key for Code Exchange (PKCE; pronounced “pixy”) grant for both public (i.e., clients -
 such as SPA - that are not capable of keeping a secret confidential) and confidential clients (i.e., clients that are
-capable of keeping a secret confidential) in scenarios where a user is present.
+capable of keeping a secret confidential).
 ====
 
 The PKCE grant, as defined in https://datatracker.ietf.org/doc/html/rfc7636[RFC 7636], is an extension to the
@@ -696,7 +696,7 @@ detached JWS structure.
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-The signature MUST be provided in a custom “x-jws-signature” HTTP header.
+The signature MUST be provided in a custom "x-jws-signature" HTTP header.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
