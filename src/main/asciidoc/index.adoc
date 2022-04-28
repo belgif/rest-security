@@ -1,4 +1,4 @@
-:update-date: 2022-04-23
+:update-date: 2022-04-28
 :doctype: book
 :docinfo:
 :toc: left
@@ -24,6 +24,8 @@ Belgif REST Security workgroup
 
 :toc!:
 :caption!:
+
+WARNING: This is the first draft release of the guide. More content will be added in the coming months.
 
 == Introduction
 
@@ -175,7 +177,7 @@ server to authenticate the clients.
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-If mTLS is not possible, it is strongly RECOMMENDED to at least implement IP whitelisting or similar network-level
+If mTLS is not possible, it is strongly RECOMMENDED to at least implement IP filtering or similar network-level
 access control mechanisms.
 ====
 
@@ -305,8 +307,8 @@ Given its wide adoption and support, OAuth 2.0 is currently the RECOMMENDED way 
 designing RESTful services.
 ====
 
-WARNING: As its name suggests, OAuth 2.0 is the second version of OAuth (OAuth is short for Open Authorization, and not for Open
-Authentication, contrary to what some sources might claim).
+WARNING: As its name suggests, OAuth 2.0 is the second version of OAuth (OAuth is short for Open Authorization, and not
+for Open Authentication, contrary to what some sources might claim).
 The two specifications are however completely different from each other and there is no backwards compatibility between
 the two.
 
@@ -434,27 +436,32 @@ A resource server SHOULD validate the reserved claims provided in an access toke
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-A JWT MUST NOT be accepted by the resource server before the time provided by the "nbf" (not before) claim and after the time provided by the "exp" (expiration time) claim.
+A JWT MUST NOT be accepted by the resource server before the time provided by the "nbf" (not before) claim and after the
+time provided by the "exp" (expiration time) claim.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-A JWT MUST NOT be accepted by the resource server if it cannot identify itself with a value (case-sensitive string) in the "aud" (audience) claim.
+A JWT MUST NOT be accepted by the resource server if it cannot identify itself with a value (case-sensitive string) in
+the "aud" (audience) claim.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-A JWT MUST NOT be accepted by the resource server if it cannot identify the authorization server in the value (case-sensitive string) provided by the "iss" (issuer) claim.
+A JWT MUST NOT be accepted by the resource server if it cannot identify the authorization server in the value
+(case-sensitive string) provided by the "iss" (issuer) claim.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-The resource server SHOULD rely on the unique identifier provided by the "sub" (subject) claim to identify the resource owner.
+The resource server SHOULD rely on the unique identifier provided by the "sub" (subject) claim to identify the resource
+owner.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
-The resource server SHOULD rely on the unique identifier provided by the "jti" (JWT identifier) claim to enforce the non-reuse of access tokens.
+The resource server SHOULD rely on the unique identifier provided by the "jti" (JWT identifier) claim to enforce the
+non-reuse of access tokens.
 ====
 
 [.rule, caption="Rule {counter:rule-number}: "]
@@ -698,10 +705,12 @@ so-called same-origin policy.
 [.rule, caption="Rule {counter:rule-number}: "]
 ====
 RESTful services SHOULD only allow a specific domain or set of domains using the "Access-Control-Allow-Origin" header.
-Non-public RESTful services MUST NOT allow all domains (origins) by setting the "Access-Control-Allow-Origin" header to "*".
+Non-public RESTful services MUST NOT allow all domains (origins) by setting the "Access-Control-Allow-Origin" header to
+"*".
 ====
 
-For a finer control, it is possible to set additional headers such as "Access-Control-Allow-Methods", "Access-Control-Request-Headers".
+For a finer control, it is possible to set additional headers such as "Access-Control-Allow-Methods",
+"Access-Control-Request-Headers".
 
 === Miscellaneous
 
