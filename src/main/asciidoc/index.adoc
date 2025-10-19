@@ -1,0 +1,823 @@
+:update-date: 2022-04-28
+:doctype: book
+:docinfo:
+:toc: left
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:sectnums:
+:idprefix:
+:idseparator: -
+:linkattrs:
+:source-highlighter: coderay
+:icons: font
+:iso639-1: http://www.loc.gov/standards/iso639-2/php/code_list.php
+:imagesdir: images
+:stylesheet: my-theme.css
+:checkedbox: pass:normal[&#10004;]
+
+[.text-justify]
+= https://www.belgif.be[Belgif] REST Security Guide
+Belgif REST Security workgroup
+{update-date}
+:keywords: belgif, belgian interoperability, rest, restful, api, security, oauth, oidc, jwt, jws, jwe, data, encryption
+
+:toc!:
+:caption!:
+
+WARNING: This is the first draft release of the guide. More content will be added in the coming months.
+
+== Introduction
+
+The quote "data is the new oil" - said to have been coined way back in 2006 by the British mathematician and
+entrepreneur Clive Humby - is now more relevant than ever.
+
+Indeed, it's safe to say that we live in a digital age in which data has become one of the most valuable resources in
+the world ("data-driven age").
+
+As a result of the rapid digital transformation of global industries, known as the fourth industrial revolution (or
+Industry 4.0), and the significant increase of machine-to-machine (M2M) communications to support Internet of Things
+(IoT) applications, the volume of data has skyrocketed over the last decade and continues to grow at an exponential
+rate.
+
+Recently, this growth has been further accelerated by the COVID-19 pandemic and its disruptive effect on businesses and
+lives around the world, forcing a greater reliance on digital technologies.
+
+In this context, RESTful web services have emerged as the de-facto industry standard for data exchange between systems
+and service integration.
+
+Unsurprisingly and as a result, REST APIs have become a prime target for threat actors.
+
+Add to this the fact that there are still many "legacy" REST APIs running in production that were released in the early
+days of REST, long before the tools, API security standards and best practices were widely available - and as such come
+with technical debt -, and it becomes clear that any self-respecting organization would be well advised to invest in
+REST API security to ensure confidentiality, integrity, and availability (i.e., the three fundamental tenets of
+information security, colloquially known as the CIA-triad) of its data and technical assets.
+
+What's more, if the data contains personally identifiable information (PII), the organization becomes legally compelled
+under the GDPR to ensure that it is processed in a way that ensures appropriate privacy and security.
+
+This guide is the result of a collaboration between several Belgian public institution and intends to raise awareness of
+security best practices for those involved in the development and maintenance of RESTful services.
+Inspired by the OWASP Foundation's https://cheatsheetseries.owasp.org/["OWASP Cheat Sheet Series"] project (licensed
+under the Creative Commons Attribution 3.0 Unported License), it aims to provide a concise collection of RESTful API
+security recommendations tailored for Belgian public institutions.
+It ought to be regarded as an addendum to the
+https://www.gcloud.belgium.be/rest/[Belgif REST guidelines].
+
+NOTE: The Open Web Application Security Project, or OWASP, is an international non-profit organization dedicated to web
+application security.
+Since 2001, it provides free documentation, tools, methodologies, and standards dedicated to improving organizations'
+application security posture.
+
+If implemented, these recommendations should prevent the vulnerabilities described in the 2019 version (i.e., the latest
+version at the time of writing) of the OWASP Foundation's https://owasp.org/www-project-api-security/["OWASP API
+Security Top 10"] project (licensed under a Creative Commons Attribution ShareAlike 4.0 International License).
+
+WARNING: This guide is non-exhaustive and focuses solely on RESTful API security.
+While it addresses some aspects of software development and architecture, it is assumed that the implementation of
+RESTful services follows a well-thought-out systems development life cycle (SDLC) and adheres to the organization's
+system acquisition, development and maintenance policies at all stages of development.
+For recommendations related to web application security, please refer to the https://owasp.org/Top10/["OWASP Top 10"]
+and https://owasp.org/www-project-application-security-verification-standard/["OWASP Application Security Verification
+Standard (ASVS)"] projects of the OWASP Foundation.
+
+NOTE: The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY",
+and "OPTIONAL" in this document are to be interpreted as described in https://datatracker.ietf.org/doc/html/rfc2119[RFC
+2119].
+
+To enable collaboration and transparency, the source code for this guide is open source and publicly hosted on
+https://github.com/belgif/rest-security[GitHub].
+
+It's meant to be a living document, regularly updated to meet the most current requirements, and address the latest
+trends and recommendations.
+
+If you are looking to contribute, please https://github.com/belgif/rest-security/issues/new/choose[open an issue] or
+https://github.com/belgif/rest-security/compare[submit a pull request] to the upstream repository.
+All changes will be reviewed by members of the Belgif REST Security workgroup.
+
+== Data confidentiality
+=== Overview
+
+Confidentiality refers to the efforts made by an organization (i.e., the security controls implemented by the
+organization) to prevent unauthorized access to its data assets.
+
+Strong access control and encryption are examples of typical security controls used to protect systems and, by
+extension, RESTful services with regard to confidentiality.
+
+=== Data classification
+
+Strong security is costly and can extend the time to market.
+
+In addition, security features (controls) often come with trade-offs in terms of performance or usability.
+
+Because of this, security management is often regarded as a balancing act, in which organizations strive to achieve
+balanced protection of data assets without unduly hindering productivity.
+
+With that in mind, not all data is treated equally, and data classification (i.e., assigning a level of sensitivity to
+each piece of information) provides a common starting point for data risk management.
+
+Organizations should therefore have a mature data classification process in place, and employees should have a good
+understanding of it.
+
+For Belgian public institutions, the
+https://dt.bosa.be/fr/politique_federale_sur_la_securite_de_linformation_fisp[Federal Information Security Policy
+(FISP)] provides a generic model for data classification in which information is classified into 5 categories - numbered
+from 0 to 4 - according to its confidentiality.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Belgian public institutions SHOULD follow the FISP model for data classification and classify data assets processed by
+their RESTful services to select the appropriate measures from those documented below, in accordance with their data
+risk management policies.
+====
+
+=== Encryption
+==== Encryption in transit
+
+In order to ensure the confidentiality of data when it is transferred over a network, contemporary security practices
+recommend authenticating the parties involved in the exchange, encrypting the data before transmission, and decrypting
+it and verifying it upon arrival.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Thus, when data is to be transmitted over a network, encryption in transit (also referred to as "encryption in motion"
+or "encryption in flight") MUST be considered.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Encryption in transit is REQUIRED for all external traffic and strongly RECOMMENDED for internal traffic.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In the case of RESTful services, it is strongly RECOMMENDED that all communications be protected using the Transport
+Layer Security (TLS) cryptographic protocol.
+====
+
+TLS allows clients to authenticate the server and guarantees the confidentiality and integrity of data in transit.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The predecessor of TLS, the now-deprecated Secure Sockets Layer (SSL) protocol, MUST NOT be used under any
+circumstances.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's strongly RECOMMENDED not to enable TLS 1.0 or TLS 1.1 in an attempt to provide support to legacy clients.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services processing Category 3-4 data MUST rely on mutual TLS (mTLS) - whenever possible - to also allow the
+server to authenticate the clients.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+If mTLS is not possible, it is strongly RECOMMENDED to at least implement IP filtering or similar network-level
+access control mechanisms.
+====
+
+NOTE: It should be noted that, in accordance with the defense-in-depth strategy of information security, an organization
+should leverage a series of layered defensive mechanisms to protect its valuable data assets.
+
+TLS supports a large number of cryptographic ciphers (or cipher suites) that provide varying levels of security.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Only strong ciphers SHOULD be enabled.
+Anonymous ciphers, export ciphers, and null ciphers MUST be explicitly disabled.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+CRIME-vulnerable TLS compression MUST be disabled.
+====
+
+TIP: Mozilla provides the https://ssl-config.mozilla.org/[Mozilla SSL Configuration Generator], an easy-to-use secure
+SSL configuration generator for web, database, and mail software.
+
+Since simply using TLS for message security is not enough, it is necessary to ensure that messages remain encrypted at
+all times, even during intermediate "hops" where traffic could potentially be previously decrypted.
+
+As such, the recommendations below are intended to provide end-to-end confidentiality assurance while also re-using
+concepts and technologies used in the process of authorization.
+
+Concepts such as JWS, JWE or JOSE are presented in section <<authorization>> of this guide.
+It is therefore recommended to revisit these recommendations after you have finished reading said section.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+All requests to RESTful services handling Category 3-4 data SHOULD be digitally signed by the API consumer using JWS
+(detached) and encrypted using JWE compact serialization.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+All responses from RESTful services handling Category 3-4 data MUST be digitally signed by the API provided using JWS
+(detached) and encrypted using JWE compact serialization.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+To avoid leaking potentially sensitive information in the URL, GET and DELETE requests SHOULD be converted to POST and
+the original HTTP method appended to the URL (e.g., GET /employers/93017373 becomes POST /employers/get).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The "application/jose+jwe" media type MUST be set to indicate that the content is encrypted.
+====
+
+==== Encryption at rest
+
+In order to ensure the confidentiality of stored data, contemporary security practices recommend the use of strong
+encryption methods such as AES or RSA to encrypt all data stored on a system.
+Encryption keys should be stored separately from the data.
+It is also good practice to store only the minimum amount of sensitive data and to do so only when necessary.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+When data processed by a RESTful service must be kept on disk, encryption at rest MUST be considered (considered does
+not necessarily mean implemented).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Encryption keys SHOULD be rotated on a regular and scheduled basis.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's RECOMMENDED to rely on a hardware security module (HSM) for server-side cryptographic key protection.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Application-level secrets MUST NOT be stored in code and SHOULD NOT be stored in configuration files or passed through
+environment variables.
+====
+
+Indeed, rather than passing secrets in configuration files or through environment variables, it is preferable to rely on
+modern security measures such as trusted central secret management and distribution systems that allow secure access to
+application-level secrets at runtime
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Tokens SHOULD only be stored either in memory or on cryptographic hardware through a secure storage API.
+====
+
+=== Access control
+
+Unfortunately, access control vulnerabilities have nowadays become by far the most common and most exploited REST API
+security flaw.
+
+This is not at all surprising, given how hard it is to get things right and how incredibly easy it is to mess them up.
+
+Admittedly, access control is a fundamentally complex subject.
+
+It requires strong knowledge and a thorough understanding of multiple security concepts that developers, especially the
+more junior ones, do not always have.
+
+What's more, it requires close collaboration between development and operations teams. Unfortunately, such collaboration
+is still uncommon in many organizations, although this is slowly changing with the rise of DevOps/DevSecOps approaches.
+
+The fact that many specifications have chosen to define their own lexicon instead of relying on existing well-known and
+understood terms has but added to the overall confusion.
+
+Simply put, in the case of RESTful services, access control is a composite concept that encompasses topics such as
+authentication, authorization, access control policy management, and server configuration (HTTP response headers, and
+whatnot), with the overarching goal of restricting access to information.
+
+==== [[authorization]] Authorization
+
+This guide will start with the most fundamental concept in RESTful service security, which is - somewhat
+counterintuitively - the authorization process.
+
+Authorization, sometimes shortened to "AuthZ", is the act of granting an authenticated party access to a specific
+resource. As noted in the previous paragraph, starting with authorization is therefore somewhat counterintuitive, since
+authorization always comes after authentication.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Given its wide adoption and support, OAuth 2.0 is currently the RECOMMENDED way for managing authorization when
+designing RESTful services.
+====
+
+WARNING: As its name suggests, OAuth 2.0 is the second version of OAuth (OAuth is short for Open Authorization, and not
+for Open Authentication, contrary to what some sources might claim).
+The two specifications are however completely different from each other and there is no backwards compatibility between
+the two.
+
+OAuth 2.0, as defined per https://datatracker.ietf.org/doc/html/rfc6749[RFC 6749], is an authorization delegation
+framework that allows a client application to obtain permission for limited access to a protected resource on a resource
+server (sometimes called the service provider) on behalf of a resource owner (an end-user or itself) without exposing
+user login credentials, by relying on token-based credentials (called "access tokens") obtained by successfully
+authenticating with an authorization server (sometimes called the identity provider).
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Although originally designed for third-party apps, OAuth 2.0 SHOULD nowadays be used even for first-party apps, as
+sharing credentials with anything other than the centralized - and usually highly-secure and well-audited -
+authorization server is considered an anti-pattern (and is therefore NOT RECOMMENDED).
+====
+
+Due to its relative simplicity and subsequent adoption by social media giants such as Facebook and Twitter, OAuth 2.0
+has quickly become very popular with developers.
+
+This popularity, however, seemingly blinded many people to the many challenges of OAuth 2.0.
+
+For starters, the specification is - regrettably - not standardized, plagued by an abundance of options and a
+frustrating lack of constraints leading to numerous insecure and non-interoperable implementations.
+
+What's worse, many important topics (e.g., client registration, authentication, authorization server capabilities) are
+simply not part of the core specification and were only addressed - partially - through the subsequent few hundred pages
+of "companion" specifications (e.g., https://datatracker.ietf.org/doc/html/rfc6750[RFC 6750],
+https://datatracker.ietf.org/doc/html/rfc6819[RFC 6819]).
+
+Thus, authentication, which is an important prerequisite for authorization, is, to date, simply considered the
+responsibility of the authorization server.
+
+Nevertheless, it's not all bad and, if implemented correctly, OAuth 2.0 is a vast improvement on what was being done in
+the past.
+
+OAuth 2.0 defines four roles:
+
+* the resource owner: an entity (end-user or server) capable of granting access to a protected resource;
+* the resource server: a server (e.g., REST API) hosting the protected resource;
+* the client: an application requesting access to a protected resource on behalf of the resource owner;
+* the authorization server: a server issuing tokens to the client after successfully authenticating the resource owner
+and obtaining authorization.
+
+The authorization process of OAuth 2.0 utilizes two authorization server endpoints:
+
+* the authorization endpoint: an endpoint used by the client to obtain authorization from the resource owner;
+* the token endpoint: an endpoint used by the client to exchange an authorization grant for an access token.
+
+In addition, https://datatracker.ietf.org/doc/html/rfc7662[RFC 7662] defines defines an introspection endpoint that
+returns the active state (i.e., the validity) of an access token and additional metadata, intended for use by resource
+servers.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+To access a protected resource, the client MUST pass the access token in the Authorization header of the request using
+the Bearer HTTP authentication scheme (defined in https://datatracker.ietf.org/doc/html/rfc6750[RFC 6750] as part of the
+HTTP authentication framework).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The authorization server MUST be configured so that it returns access tokens that are self-contained in lieu of opaque
+tokens.
+
+Indeed, opaque tokens MUST be validated at the authorization server's token introspection endpoint for each request,
+which is grossly inefficient.
+
+Self-contained tokens, by contrast, SHOULD be validated locally by the resource server, assuming that there is a
+pre-established trust relationship between the resource server and the authorization server.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+For RESTful services processing Category 3-4 data, it's RECOMMENDED to validate all access tokens at the authorization
+server's token introspection endpoint (despite the performance penalty).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+As any other secret, access tokens MUST be kept confidential in transit and at rest, and only shared among the
+authorization server, the resource servers the access token is valid for (in a micro-services architecture, access
+tokens MAY be propagated between services), and the client to whom the access token is issued.
+====
+
+[[bookmark-jwe]]
+Self-contained tokens contain a set of claims stored in the payload part of an
+https://datatracker.ietf.org/doc/html/rfc7519[RFC 7519] compliant JSON Web Token (JWT; pronounced "jot") object
+represented as either a https://datatracker.ietf.org/doc/html/rfc7515[JSON Web Signature (JWS)] and/or
+https://datatracker.ietf.org/doc/html/rfc7516[JSON Web Encryption (JWE)] structure.
+
+NOTE: Self-contained access tokens can be encrypted (see below) in case they contain sensitive data (such as scopes).
+By using encrypted access tokens, only resource servers with access to the private key can decrypt the tokens.
+
+A claim is simply a key/value pair holding some piece of information asserted about an entity that can be used for
+access control decisions.
+
+The JWT standard distinguishes between reserved claims and custom claims (public or private).
+
+Reserved claims are standardized claims that have been defined to enable interoperability.
+A full list of reserved claims can also be found on the https://www.iana.org/assignments/jwt/jwt.xhtml[IANA JSON Web
+Token Claims Registry].
+
+Custom claims are simply non-reserved claims.
+
+Public claims are custom claims whose names are collision-resistant.
+
+Collision-resistance is achieved through name-spacing.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The namespace identifier SHOULD be the internet domain name of the organization.
+====
+
+Private claims are custom claims whose names are not collision-resistant.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Public claims SHOULD be used in lieu of private claims in most scenarios.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A resource server SHOULD validate the reserved claims provided in an access token's payload.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server before the time provided by the "nbf" (not before) claim and after the
+time provided by the "exp" (expiration time) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server if it cannot identify itself with a value (case-sensitive string) in
+the "aud" (audience) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server if it cannot identify the authorization server in the value
+(case-sensitive string) provided by the "iss" (issuer) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The resource server SHOULD rely on the unique identifier provided by the "sub" (subject) claim to identify the resource
+owner.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The resource server SHOULD rely on the unique identifier provided by the "jti" (JWT identifier) claim to enforce the
+non-reuse of access tokens.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Indeed, access tokens MUST be short-lived (lifetime should not exceed a few minutes) and SHOULD be used at most once.
+====
+
+A resource server can rely on a key-value store or cache to prevent token reuse.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+It's strongly RECOMMENDED to rely on a cryptographic signature for JWS integrity protection.
+
+Conversely, the use of a Message Authentication Code (MAC) for integrity protection is strongly discouraged (as it would
+allow any compromised service that can validate a JWT to create a new JWT using the same key).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Claims within a JWS are simply base64 encoded but carry a cryptographic signature for authentication and integrity.
+As such, such tokens MUST NOT hold sensitive information.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Claims within a JWE are signed then encrypted, and as such are entirely opaque to clients.
+As such, such tokens MAY hold sensitive information.
+====
+
+In select cases, when working with the JWE, it may be useful to have an unencrypted representation of certain claims.
+In such cases, it is permissible to reproduce these claims as header parameters in the JWE, provided that they can be
+securely transmitted in an unencrypted manner.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+If such replicated claims are present, the receiving application SHOULD verify that their values are identical.
+====
+
+https://datatracker.ietf.org/doc/html/rfc7519[RFC 7519] registers the header parameter names "iss" (issuer), "sub"
+(subject) and "aud" (audience) for the purpose of providing unencrypted replicas of these claims in JWE.
+Other header parameter names MAY be used, as appropriate.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+As far as algorithms requirements for JWS and JWE go, it's strongly RECOMMEND to use only ES256, ES256K, or RS256.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The unsecured "none" algorithm MUST NOT be used.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+To select the verification algorithm, RESTful services MUST rely on their local configuration rather than on the
+information in the JWT header.
+====
+
+In addition to the access token, the OAuth 2.0 specification foresees another token type: the "refresh token".
+
+The refresh token is a long-lived - usually opaque - token that can be issued by the authorization server to a client to
+allow it to obtain a new access token when the current becomes invalid or expires.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Just like the access token, the refresh token MUST be used at most once and MUST be kept confidential in transit and at
+rest.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+However, unlike the access token, a refresh token is intended to be used solely with authorization servers and MUST NOT
+be sent to resource servers.
+====
+
+The subset of capabilities delegated by a token can be specified through a scoping mechanism.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The authorization server MUST allow the client to specify the scope of the access request using the "scope" request
+parameter.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Since user consent is REQUIRED for public clients, the scope (resources and permissions) that the user is expected to
+grant MUST be explained in a clear and understandable manner.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The authorization server MUST use the "scope" response parameter to inform the client of the scope of the issued access
+token.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The scope of an access token MUST be as narrow as possible to adhere to the principle of least privilege.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+As tempting as it may be to try to centralize all authorization logic on the authorization server, OAuth 2.0 scopes
+SHOULD only be used for coarse-grained access control.
+
+As OAuth 2.0 does not provide a policy language to define policies for fine-grained access control, it's RECOMMENDED to
+use it in conjunction with a policy-based access control authorization framework such as
+https://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html[XACML],
+https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-178.pdf[NGAC] or the more modern
+https://www.openpolicyagent.org/[Open Policy Agent].
+
+Fine-grained access control policies SHOULD be specified (authorization policy definition) and exercised (authorization
+policy enforcement) at the resource server level (possibly via a centralized policy engine).
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Stemming from the above, access control decisions MUST be taken at the resource server level for every request by
+combining the scopes and the fine-grained access control policies.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+For access control decisions, it is strongly RECOMMENDED to follow the principle of "deny by default" and use
+Attribute-Based Access Control (ABAC) over Role-Based Access Control (RBAC).
+This of course does not apply to public resources.
+====
+
+The OAuth 2.0 specification describes but five grants (or flows) for clients to obtain access - and in some cases
+refresh - tokens.
+
+An extensibility mechanism has, however, been foreseen to allow for additional grants to be defined.
+
+As a result, there are many different grants that are today supported by the various authorization servers that can be
+found on the market.
+
+Nevertheless, not all are considered safe by today's standards.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In scenarios involving a user, it's strongly RECOMMENDED - as per the latest
+https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics/[OAuth 2.0 Security Best Current Practice (BCP)
+RFC] - to rely on the Proof Key for Code Exchange (PKCE; pronounced "pixy") grant for both public (i.e., clients -
+such as SPA - that are not capable of keeping a secret confidential) and confidential clients (i.e., clients that are
+capable of keeping a secret confidential).
+====
+
+The PKCE grant, as defined in https://datatracker.ietf.org/doc/html/rfc7636[RFC 7636], is an extension to the
+Authorization Code grant designed to prevent Cross-Site Request Forgery (CSRF) and authorization code injection attacks.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In scenarios not involving a user, it's RECOMMENDED to rely on the Client Credentials grant.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Insecure flows such as the Resource Owner Password Credentials Grant or Implicit Grant MUST NOT be used anymore, ever.
+====
+
+// TODO: for the sake of completeness it's probably best to also cover the device Authorization Flow
+
+==== Authentication
+
+Authentication, sometimes shortened to "AuthN", is the act of confirming the identity claim of an entity.
+
+Built on top of OAuth 2.0 and designed with social login in mind, the OpenID Connect 1.0 (OIDC) protocol became - for
+better or for worse - the current de-facto standard for providing single sign-on (SSO) authentication, mostly as a
+consequence of the widespread adoption of OAuth 2.0.
+
+As a suite of specifications, OIDC describes an interoperable and - relatively speaking - simple identity layer built on
+top of OAuth 2.0 to perform user authentication and obtain - in a RESTful manner - basic user information in the form of
+claims contained within a JWS structure called "ID token".
+
+The ID token is intended to be used solely by clients as a medium for the retrieval of information about a user.
+
+A RESTful resource server is not supposed to receive or process ID tokens.
+
+As such, OIDC is outside the scope of this document.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Developers SHOULD nevertheless be familiar with OIDC, because understanding it usually helps in clearing up any
+ambiguities from the OAuth 2.0 specification.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Regardless of whether OIDC is used or not, it is RECOMMENDED that a read-only /.well-known/jwks.json endpoint that
+returns the authorization server's public key set in JSON Web Key Set (JWKS) format be provided.
+====
+
+NOTE: A JWKS is a JSON data structure that represents a set of https://datatracker.ietf.org/doc/html/rfc7517[JSON Web
+Keys (JWK)].
+A JWK is a JSON data structure that represents a cryptographic key.
+
+This mechanism, introduced in the OpenID Connect Discovery specification, would allow resource servers to dynamically
+retrieve public keys used for token signature validation, in case key rotation is implemented.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+A JWT MUST NOT be accepted by the resource server if it cannot identify the well-known JWKS resource in the value
+(case-sensitive string) provided by the "jku" (JWK Set URL) claim.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The key identifier MUST be provided in the "kid" (key identifier) header parameter.
+====
+
+==== HTTP response headers
+
+It is often necessary to set appropriate HTTP headers to prevent accidental information disclosure.
+
+The "Cache-Control" HTTP header holds directives for caching in both requests and responses.
+It is important to specify the ability of a resource to be cached so as to prevent the possibly undesirable exposure of
+information via the cache (or the usage of stale data).
+Although the "Cache-Control" header is the primary means of defining caching directives, it is often used in tandem with
+the "Expires" header.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services handling Category 1-2 data SHOULD indicate that responses may only be stored in a browser's cache by
+setting the HTTP "Cache-Control" header to "private".
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services handling Category 3-4 data MUST indicate that responses may not be stored in any cache by setting the
+HTTP "Cache-Control" header to "no-store, max-age=0".
+====
+
+Note that it is possible to override the "Expires" header and the "max-age" directive for shared caches such as proxies
+by using the "s-maxage" directive.
+
+Cross-Origin Resource Sharing (CORS) is an HTTP header-based mechanism used to allow or disallow resource sharing
+between different origins (i.e., domains).
+Without features like CORS, modern browsers restrict websites to accessing resources of the same origin through a
+so-called same-origin policy.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services SHOULD only allow a specific domain or set of domains using the "Access-Control-Allow-Origin" header.
+Non-public RESTful services MUST NOT allow all domains (origins) by setting the "Access-Control-Allow-Origin" header to
+"*".
+====
+
+For a finer control, it is possible to set additional headers such as "Access-Control-Allow-Methods",
+"Access-Control-Request-Headers".
+
+=== Miscellaneous
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+When it comes to identifiers, sequential or otherwise predictable identifiers MUST NOT be used. Instead, it is strongly
+RECOMMENDED to use long, unique, random, and unpredictable identifiers such as
+https://datatracker.ietf.org/doc/html/rfc4122[RFC 4122]-defined UUIDs, also known as GUIDs.
+====
+
+== Data integrity
+=== Overview
+
+Integrity refers to an organization's efforts (i.e., the security controls implemented by the organization) to ensure
+that its data assets have not been tampered with and can therefore be trusted.
+
+Signature and encryption, data sanitization, parameter validation, input validation are examples of typical security
+controls used to protect systems and, by extension, RESTful services with regard to integrity.
+
+Those typically work in tandem with the security controls used to protect systems and, by extension, RESTful services
+with regard to confidentiality.
+
+=== Signature and encryption
+
+Techniques used to guarantee the integrity of access tokens in the context of authorization can naturally also be used
+to guarantee the integrity of HTTP message bodies.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Requests to RESTful services handling Category 1-2 data MAY be digitally signed by the API consumer using JWS.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+Responses from RESTful services handling Category 1-2 data MUST be digitally signed by the API provider using JWS.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+To avoid obfuscating HTTP body data by wrapping the payload in a JWS envelope, the HTTP body MUST be represented as a
+detached JWS structure.
+The signature MUST then be provided in a custom "x-jws-signature" HTTP header.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+The "application/jose" media type MUST be set to indicate that the content is signed.
+====
+
+=== Data sanitization and validation
+
+A common method used by attackers to infringe on data integrity and confidentiality is to provide various untrusted
+inputs in an attempt to exploit potential bugs that would allow them to extract, modify, add, or delete data from the
+system.
+This broad category of attack vectors is referred to as "injection attacks".
+Injection attacks, regardless of the technology they target, always arise from the interpretation of untrusted data.
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST sanitize (i.e., strip out all unwanted characters and strings) and validate (length, type, format,
+range) all input before interpreting it.
+====
+
+// TODO: define an appropriate request size limit and reject requests exceeding the limit with HTTP response status 413
+// Request Entity Too Large
+
+== Data availability
+=== Overview
+
+Availability refers to an organization's efforts (i.e., the security controls implemented by the organization) to ensure
+that its data assets are accessible, in a timely and reliable manner, to authorized users when they need them.
+
+API rate limiting, redundancy, failover, and monitoring are examples of typical security controls used to protect
+systems and, by extension, RESTful services with regard to availability.
+
+It is worth mentioning that when processing personally identifiable information., the General Data Protection Regulation
+(GDPR) requires organizations to report serious data breaches to the Data Protection Authority within 72 hours of the
+discovery of the data breach. This includes availability breaches where there is an accidental or unauthorized loss of
+access to, or destruction of personal data, even if temporary.
+
+=== Server configuration
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+API rate limiting SHOULD always be implemented to minimize damage from malicious automated attacks.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST respond with a 429 Too Many Requests HTTP response status code to callers that have exceeded their
+rate limit.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST allow only the necessary HTTP methods and respond with a 405 Method Not Allowed HTTP response
+status code to requests using unsupported or unimplemented methods.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+RESTful services MUST NOT expose internal-use or management endpoints to the public Internet.
+====
+
+[.rule, caption="Rule {counter:rule-number}: "]
+====
+In case of failure, RESTful services MUST NOT pass technical details in error messages.
+Instead, it is RECOMMENDED that a unique, randomly generated correlation identifier be provided in the response to
+facilitate future troubleshooting.
+====
